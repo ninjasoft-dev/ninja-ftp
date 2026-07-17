@@ -18457,7 +18457,7 @@ printf %s "checking whether the compiler actually targets MinGW... " >&6; }
 matching=
 cxx_v=`"$CXX" -v 2>&1`
 if echo "$cxx_v" | grep -i '^target:.*$' >/dev/null 2>&1; then
-	if echo "$cxx_v" | grep -i '^target:.*mingw.*$' >/dev/null 2>&1; then
+	if echo "$cxx_v" | grep -i '^target:.*mingw\|windows-gnu.*$' >/dev/null 2>&1; then
 		matching=1
 	fi
 else
@@ -22637,5 +22637,4 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: unrecognized options: $ac_unrecognized_opts" >&5
 printf "%s\n" "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
-
 

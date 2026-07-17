@@ -580,7 +580,7 @@ uninstall-local:
 	  exit 1; \
 	fi; \
 	if [ "$${file%.po.new}" != "en" ]; then \
-	  $(MSGMERGE) $@ filezilla.pot -o $@~ || exit 1; \
+	  $(MSGMERGE) $@ $(srcdir)/filezilla.pot -o $@~ || exit 1; \
 	  mv $@~ $@; \
 	fi
 

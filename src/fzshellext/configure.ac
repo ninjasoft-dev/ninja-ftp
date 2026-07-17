@@ -46,7 +46,7 @@ AC_MSG_CHECKING([whether the compiler actually targets MinGW])
 matching=
 cxx_v=`"$CXX" -v 2>&1`
 if echo "$cxx_v" | grep -i '^target:.*$' >/dev/null 2>&1; then
-	if echo "$cxx_v" | grep -i '^target:.*mingw.*$' >/dev/null 2>&1; then
+	if echo "$cxx_v" | grep -i '^target:.*mingw\|windows-gnu.*$' >/dev/null 2>&1; then
 		matching=1
 	fi
 else

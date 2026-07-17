@@ -1,0 +1,64 @@
+# Compilação no Windows
+
+Este fork usa o ambiente **MSYS2 UCRT64** para gerar um executável nativo de
+64 bits. O fluxo abaixo mantém os artefatos em `build-ucrt64/` e desativa
+somente a extensão do Explorer, que não é necessária para desenvolver ou
+avaliar a interface do cliente.
+
+## Uso rápido
+
+Na raiz do projeto, execute:
+
+```powershell
+.\scripts\build-windows.ps1 -Run
+```
+
+O parâmetro `-Run` abre a aplicação depois da compilação. Sem ele, o script
+apenas compila e prepara a versão portátil.
+
+O executável fica em:
+
+```text
+build-ucrt64\stage\ucrt64\bin\filezilla.exe
+```
+
+Depois de alterar o código, repita o mesmo comando. O `make` recompila apenas
+o que mudou. Use `-Reconfigure` somente depois de modificar arquivos do
+Autotools ou opções de configuração:
+
+```powershell
+.\scripts\build-windows.ps1 -Reconfigure -Run
+```
+
+## Dependências
+
+O script espera o MSYS2 em `C:\msys64`. Em outra máquina, atualize o ambiente
+com `pacman -Syu` e instale os pacotes abaixo no PowerShell:
+
+```powershell
+& C:\msys64\usr\bin\pacman.exe -S --needed base-devel `
+  mingw-w64-ucrt-x86_64-gcc `
+  mingw-w64-ucrt-x86_64-autotools `
+  mingw-w64-ucrt-x86_64-boost `
+  mingw-w64-ucrt-x86_64-cppunit `
+  mingw-w64-ucrt-x86_64-fzssh `
+  mingw-w64-ucrt-x86_64-gettext-tools `
+  mingw-w64-ucrt-x86_64-gnutls `
+  mingw-w64-ucrt-x86_64-libfilezilla `
+  mingw-w64-ucrt-x86_64-pkgconf `
+  mingw-w64-ucrt-x86_64-sqlite3 `
+  mingw-w64-ucrt-x86_64-wxwidgets3.2-msw
+```
+
+Se a atualização trocar o runtime do MSYS2, feche seus terminais MSYS2 e
+execute `pacman -Syu` novamente antes de instalar as dependências.
+
+## Escopo deste build
+
+- Interface gráfica, FTP, FTPS, SFTP, gerenciador de sites e traduções estão
+  habilitados.
+- A verificação automática de atualização fica desativada no executável de
+  desenvolvimento.
+- A extensão de menu do Explorer não é compilada. Ela exige também o toolchain
+  MinGW de 32 bits e não interfere na aparência ou no funcionamento do cliente.
+- `build-ucrt64/` não deve ser versionado.

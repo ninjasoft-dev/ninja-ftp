@@ -54,7 +54,7 @@ XGETTEXT_ARGS=-C -k_ -kfztranslate:1,1t -kfztranslate:1,2,3t -kfztranslate_mark:
 	  exit 1; \
 	fi; \
 	if [ "$${file%.po.new}" != "en" ]; then \
-	  $(MSGMERGE) $@ filezilla.pot -o $@~ || exit 1; \
+	  $(MSGMERGE) $@ $(srcdir)/filezilla.pot -o $@~ || exit 1; \
 	  mv $@~ $@; \
 	fi
 
