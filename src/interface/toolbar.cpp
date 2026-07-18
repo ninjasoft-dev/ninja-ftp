@@ -10,10 +10,30 @@
 #include "toolbar.h"
 
 #include <wx/dcclient.h>
-#include <wx/dcmemory.h>
+
+#ifdef __WXMSW__
+#include <commctrl.h>
+#endif
 
 namespace {
-	constexpr int toolbarStyle = wxTB_FLAT | wxTB_HORIZONTAL | wxTB_NODIVIDER;
+	// Sem NOALIGN, o controle nativo expande cada barra sobre toda a janela.
+	constexpr int toolbarStyle = wxTB_FLAT | wxTB_HORIZONTAL |
+		wxTB_NODIVIDER | wxTB_NOALIGN;
+
+#ifdef __WXMSW__
+	COLORREF ToNativeColour(wxColour const& colour)
+	{
+		return RGB(colour.Red(), colour.Green(), colour.Blue());
+	}
+
+	void FillToolbarRect(HDC dc, RECT const& rect, interface_colour role)
+	{
+		auto const brush = CreateSolidBrush(
+			ToNativeColour(GetInterfaceColour(role)));
+		FillRect(dc, &rect, brush);
+		DeleteObject(brush);
+	}
+#endif
 }
 
 #ifdef __WXMAC__
@@ -57,14 +77,18 @@ CToolBar::CToolBar(CMainFrame& mainFrame, COptions& options)
 	SetMinSize(wxSize(-1, toolbarHeight + 2 * verticalPadding));
 	SetSize(wxSize(mainFrame.GetClientSize().GetWidth(), toolbarHeight + 2 * verticalPadding));
 
-	Bind(wxEVT_SIZE, [this, verticalPadding](wxSizeEvent& event) {
+	auto const layoutToolbars = [this, verticalPadding] {
 		auto const size = GetClientSize();
 		int const localWidth = size.GetWidth() / 2;
 		int const toolbarAreaHeight = wxMax(0, size.GetHeight() - 2 * verticalPadding);
 		localToolBar_->SetSize(0, verticalPadding, localWidth, toolbarAreaHeight);
 		remoteToolBar_->SetSize(localWidth, verticalPadding, size.GetWidth() - localWidth, toolbarAreaHeight);
+	};
+	Bind(wxEVT_SIZE, [layoutToolbars](wxSizeEvent& event) {
+		layoutToolbars();
 		event.Skip();
 	});
+	layoutToolbars();
 	Bind(wxEVT_PAINT, [this](wxPaintEvent&) {
 		wxPaintDC dc(this);
 		auto const rect = GetClientRect();
@@ -120,9 +144,7 @@ void CToolBar::MakeTool(wxToolBar& toolbar, char const* id, std::wstring const& 
 	}
 
 	wxBitmap bmp = CThemeProvider::Get()->CreateBitmap(art, wxART_TOOLBAR, iconSize_, true);
-	int const toolId = XRCID(id);
-	baseBitmaps_[toolId] = bmp;
-	toolbar.AddTool(toolId, wxString(), bmp, wxBitmap(), type, tooltip, help);
+	toolbar.AddTool(XRCID(id), wxString(), bmp, wxBitmap(), type, tooltip, help);
 }
 
 void CToolBar::MakeTools()
@@ -133,19 +155,19 @@ void CToolBar::MakeTools()
 	MakeTool(*localToolBar_, "ID_TOOLBAR_SITEMANAGER", L"ART_SITEMANAGER", _("Open the Site Manager. Right-click for a list of sites."), _("Open the Site Manager"), wxITEM_DROPDOWN);
 #endif
 	localToolBar_->AddSeparator();
-	MakeTool(*localToolBar_, "ID_TOOLBAR_LOGVIEW", L"ART_LOGVIEW", _("Toggles the display of the message log"));
-	MakeTool(*localToolBar_, "ID_TOOLBAR_LOCALTREEVIEW", L"ART_LOCALTREEVIEW", _("Toggles the display of the local directory tree"));
-	MakeTool(*localToolBar_, "ID_TOOLBAR_QUEUEVIEW", L"ART_QUEUEVIEW", _("Toggles the display of the transfer queue"));
+	MakeTool(*localToolBar_, "ID_TOOLBAR_LOGVIEW", L"ART_LOGVIEW", _("Toggles the display of the message log"), wxString(), wxITEM_CHECK);
+	MakeTool(*localToolBar_, "ID_TOOLBAR_LOCALTREEVIEW", L"ART_LOCALTREEVIEW", _("Toggles the display of the local directory tree"), wxString(), wxITEM_CHECK);
+	MakeTool(*localToolBar_, "ID_TOOLBAR_QUEUEVIEW", L"ART_QUEUEVIEW", _("Toggles the display of the transfer queue"), wxString(), wxITEM_CHECK);
 	MakeTool(*localToolBar_, "ID_TOOLBAR_REFRESH", L"ART_REFRESH", _("Refresh the file and folder lists"));
 
-	MakeTool(*remoteToolBar_, "ID_TOOLBAR_REMOTETREEVIEW", L"ART_REMOTETREEVIEW", _("Toggles the display of the remote directory tree"));
+	MakeTool(*remoteToolBar_, "ID_TOOLBAR_REMOTETREEVIEW", L"ART_REMOTETREEVIEW", _("Toggles the display of the remote directory tree"), wxString(), wxITEM_CHECK);
 	remoteToolBar_->AddSeparator();
-	MakeTool(*remoteToolBar_, "ID_TOOLBAR_PROCESSQUEUE", L"ART_PROCESSQUEUE", _("Toggles processing of the transfer queue"));
+	MakeTool(*remoteToolBar_, "ID_TOOLBAR_PROCESSQUEUE", L"ART_PROCESSQUEUE", _("Toggles processing of the transfer queue"), wxString(), wxITEM_CHECK);
 	MakeTool(*remoteToolBar_, "ID_TOOLBAR_CANCEL", L"ART_CANCEL", _("Cancels the current operation"), _("Cancel current operation"));
 	MakeTool(*remoteToolBar_, "ID_TOOLBAR_DISCONNECT", L"ART_DISCONNECT", _("Disconnects from the currently visible server"), _("Disconnect from server"));
 	MakeTool(*remoteToolBar_, "ID_TOOLBAR_RECONNECT", L"ART_RECONNECT", _("Reconnects to the last used server"));
 	remoteToolBar_->AddSeparator();
-	MakeTool(*remoteToolBar_, "ID_TOOLBAR_FILTER", L"ART_FILTER", _("Opens the directory listing filter dialog. Right-click to toggle filters.") + L"\n" + _("Files matching a filter rule are removed from directory listings."), _("Filter the directory listings"));
+	MakeTool(*remoteToolBar_, "ID_TOOLBAR_FILTER", L"ART_FILTER", _("Opens the directory listing filter dialog. Right-click to toggle filters.") + L"\n" + _("Files matching a filter rule are removed from directory listings."), _("Filter the directory listings"), wxITEM_CHECK);
 	MakeTool(*remoteToolBar_, "ID_TOOLBAR_REFRESH", L"ART_REFRESH", _("Refresh the file and folder lists"));
 }
 
@@ -175,36 +197,83 @@ void CToolBar::ToggleTool(int id, bool toggle)
 {
 	selectedTools_[id] = toggle;
 	auto toolbar = FindToolBar(id);
-	auto const bitmap = baseBitmaps_.find(id);
-	if (!toolbar || bitmap == baseBitmaps_.end()) {
+	if (!toolbar) {
 		return;
 	}
-
-	wxBitmap rendered(bitmap->second.ConvertToImage());
-	if (toggle) {
-		wxMemoryDC dc(rendered);
-		int const outerRadius = wxMax(FromDIP(3), rendered.GetWidth() / 7);
-		wxPoint const centre(
-			rendered.GetWidth() - outerRadius,
-			rendered.GetHeight() - outerRadius);
-		dc.SetPen(*wxTRANSPARENT_PEN);
-		dc.SetBrush(wxBrush(GetInterfaceColour(interface_colour::panel)));
-		dc.DrawCircle(centre, outerRadius);
-		dc.SetBrush(wxBrush(GetInterfaceColour(interface_colour::accent)));
-		dc.DrawCircle(centre, wxMax(FromDIP(2), outerRadius / 2));
-		dc.SelectObject(wxNullBitmap);
-	}
-	toolbar->SetToolNormalBitmap(id, rendered);
+	toolbar->ToggleTool(id, toggle);
 	toolbar->Refresh();
 }
 
-void CToolBar::RefreshSelectedTools()
+void CToolBar::RefreshToolbars()
 {
-	auto const selections = selectedTools_;
-	for (auto const& [id, selected] : selections) {
-		ToggleTool(id, selected);
-	}
+	localToolBar_->Refresh(false);
+	remoteToolBar_->Refresh(false);
 }
+
+#ifdef __WXMSW__
+WXLRESULT CToolBar::MSWWindowProc(
+	WXUINT message, WXWPARAM wParam, WXLPARAM lParam)
+{
+	if (message == WM_NOTIFY && lParam) {
+		auto const header = reinterpret_cast<NMHDR*>(lParam);
+		bool const isOurToolbar =
+			(localToolBar_ &&
+				header->hwndFrom == localToolBar_->GetHandle()) ||
+			(remoteToolBar_ &&
+				header->hwndFrom == remoteToolBar_->GetHandle());
+		if (isOurToolbar && header->code == NM_CUSTOMDRAW) {
+			auto const draw = reinterpret_cast<NMTBCUSTOMDRAW*>(lParam);
+			if (draw->nmcd.dwDrawStage == CDDS_PREPAINT) {
+				return CDRF_NOTIFYITEMDRAW;
+			}
+			if (draw->nmcd.dwDrawStage == CDDS_ITEMPREPAINT) {
+				// O realce é pintado sem substituir os bitmaps geridos pelo Windows.
+				RECT const itemRect = draw->nmcd.rc;
+				FillToolbarRect(draw->nmcd.hdc, itemRect,
+					interface_colour::panel);
+
+				auto const state = draw->nmcd.uItemState;
+				bool const disabled = (state & CDIS_DISABLED) != 0;
+				bool const pressed = !disabled && (state & CDIS_SELECTED) != 0;
+				bool const hovered = !disabled && (state & CDIS_HOT) != 0;
+				bool const checked = !disabled && SendMessageW(
+					header->hwndFrom, TB_ISBUTTONCHECKED,
+					draw->nmcd.dwItemSpec, 0) != 0;
+
+				if (pressed || hovered || checked) {
+					RECT highlight = itemRect;
+					int const inset = FromDIP(2);
+					InflateRect(&highlight, -inset, -inset);
+					auto const backgroundRole = pressed ?
+						interface_colour::accent :
+						interface_colour::surface_strong;
+					auto const borderRole = hovered || pressed ?
+						interface_colour::accent_hover :
+						interface_colour::accent;
+					auto const brush = CreateSolidBrush(ToNativeColour(
+						GetInterfaceColour(backgroundRole)));
+					auto const pen = CreatePen(PS_SOLID, 1, ToNativeColour(
+						GetInterfaceColour(borderRole)));
+					auto const previousBrush =
+						SelectObject(draw->nmcd.hdc, brush);
+					auto const previousPen = SelectObject(draw->nmcd.hdc, pen);
+					int const radius = FromDIP(6);
+					RoundRect(draw->nmcd.hdc, highlight.left, highlight.top,
+						highlight.right, highlight.bottom, radius, radius);
+					SelectObject(draw->nmcd.hdc, previousPen);
+					SelectObject(draw->nmcd.hdc, previousBrush);
+					DeleteObject(pen);
+					DeleteObject(brush);
+				}
+
+				return TBCDRF_NOBACKGROUND | TBCDRF_NOEDGES |
+					TBCDRF_NOOFFSET;
+			}
+		}
+	}
+	return wxPanel::MSWWindowProc(message, wParam, lParam);
+}
+#endif
 
 void CToolBar::EnableTool(int id, bool enable)
 {
@@ -279,8 +348,8 @@ void CToolBar::UpdateToolbarState()
 void CToolBar::OnOptionsChanged(watched_options const& options)
 {
 	if (options.test(OPTION_INTERFACE_APPEARANCE)) {
-		// A mudança da paleta ocorre logo após a gravação da opção.
-		CallAfter([this] { RefreshSelectedTools(); });
+		// A paleta muda antes do próximo ciclo de pintura do toolbar nativo.
+		CallAfter([this] { RefreshToolbars(); });
 	}
 	if (options.test(OPTION_SHOW_MESSAGELOG)) {
 		ToggleTool(XRCID("ID_TOOLBAR_LOGVIEW"), options_.get_int(OPTION_SHOW_MESSAGELOG) != 0);
@@ -316,6 +385,10 @@ bool CToolBar::ShowTool(int id)
 	entry.toolbar->InsertTool(entry.position, entry.tool);
 	hiddenTools_.erase(hidden);
 	entry.toolbar->Realize();
+	auto const selected = selectedTools_.find(id);
+	if (selected != selectedTools_.end()) {
+		entry.toolbar->ToggleTool(id, selected->second);
+	}
 	return true;
 }
 

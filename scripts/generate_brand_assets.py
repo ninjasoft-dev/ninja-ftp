@@ -142,6 +142,18 @@ def generate_toolbar_icons() -> None:
     target_dir = RESOURCE_DIR / "default" / "480x480"
 
     image, draw = _new_toolbar_icon()
+    draw.rounded_rectangle(
+        (72, 98, 408, 386), radius=34, outline=MUTED, width=28
+    )
+    draw.line((72, 174, 408, 174), fill=BLUE, width=28)
+    draw.rounded_rectangle(
+        (118, 224, 362, 338), radius=24, outline=ACCENT, width=28
+    )
+    draw.ellipse((148, 258, 178, 288), fill=SUCCESS)
+    draw.line((214, 273, 324, 273), fill=MUTED, width=22)
+    image.save(target_dir / "sitemanager.png")
+
+    image, draw = _new_toolbar_icon()
     draw.rounded_rectangle((74, 70, 406, 410), radius=36, outline=MUTED, width=30)
     draw.line((74, 142, 406, 142), fill=BLUE, width=30)
     for y in (218, 286, 354):
@@ -178,6 +190,19 @@ def generate_toolbar_icons() -> None:
     draw.line((310, 288, 370, 354, 430, 288), fill=ACCENT, width=34, joint="curve")
     draw.ellipse((92, 96, 120, 124), fill=SUCCESS)
     image.save(target_dir / "queueview.png")
+
+    image, draw = _new_toolbar_icon()
+    draw.line((164, 382, 164, 116), fill=SUCCESS, width=34)
+    draw.line((94, 184, 164, 106, 234, 184), fill=SUCCESS, width=34)
+    draw.line((316, 98, 316, 364), fill=ACCENT, width=34)
+    draw.line((246, 296, 316, 374, 386, 296), fill=ACCENT, width=34)
+    image.save(target_dir / "processqueue.png")
+
+    image, draw = _new_toolbar_icon()
+    draw.ellipse((82, 82, 398, 398), outline=MUTED, width=30)
+    draw.line((164, 164, 316, 316), fill=ACCENT, width=38)
+    draw.line((316, 164, 164, 316), fill=ACCENT, width=38)
+    image.save(target_dir / "cancel.png")
 
     image, draw = _new_toolbar_icon()
     draw.arc((72, 72, 408, 408), 202, 350, fill=ACCENT, width=38)
