@@ -54,14 +54,14 @@ XGETTEXT_ARGS=-C -k_ -kfztranslate:1,1t -kfztranslate:1,2,3t -kfztranslate_mark:
 	  exit 1; \
 	fi; \
 	if [ "$${file%.po.new}" != "en" ]; then \
-	  $(MSGMERGE) $@ $(srcdir)/filezilla.pot -o $@~ || exit 1; \
+	  $(MSGMERGE) $@ filezilla.pot -o $@~ || exit 1; \
 	  mv $@~ $@; \
 	fi
 
 # touch file so that timestamp is newer than that of filezilla.pot
 	@touch $@;
 
-filezilla.pot: $(srcdir)/../src/include/*.h $(srcdir)/../src/engine/*.h $(srcdir)/../src/interface/*.h  $(srcdir)/../src/engine/*.cpp $(srcdir)/../src/interface/*.cpp
+filezilla.pot: $(srcdir)/../src/include/*.h $(srcdir)/../src/engine/*.h $(srcdir)/../src/interface/*.h $(srcdir)/../src/interface/settings/*.h $(srcdir)/../src/interface/wxext/*.h $(srcdir)/../src/commonui/*.h $(srcdir)/../src/engine/*.cpp $(srcdir)/../src/interface/*.cpp $(srcdir)/../src/interface/settings/*.cpp $(srcdir)/../src/interface/wxext/*.cpp $(srcdir)/../src/commonui/*.cpp
 	@rm -f $@.new
 	@touch $@.new
 

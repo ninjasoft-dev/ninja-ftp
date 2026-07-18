@@ -7,6 +7,7 @@
 #include <vector>
 
 class CCommandLine;
+class CInterfaceAppearance;
 class COptions;
 class CThemeProvider;
 class CWrapEngine;
@@ -71,6 +72,7 @@ protected:
 	std::vector<std::pair<fz::monotonic_clock, std::string>> m_startupProfile;
 
 	std::unique_ptr<CThemeProvider> themeProvider_;
+	std::unique_ptr<CInterfaceAppearance> appearance_;
 };
 
 DECLARE_APP(CFileZillaApp)

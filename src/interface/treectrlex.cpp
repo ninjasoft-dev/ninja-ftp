@@ -1,5 +1,6 @@
 #include "filezilla.h"
 #include "treectrlex.h"
+#include "graphics.h"
 
 #ifdef __WXMAC__
 BEGIN_EVENT_TABLE(wxTreeCtrlEx, wxNavigationEnabled<wxTreeCtrl>)
@@ -46,8 +47,8 @@ wxTreeCtrlEx::wxTreeCtrlEx(wxWindow *parent, wxWindowID id /*=wxID_ANY*/,
 	});
 #ifdef __WXMSW__
 	Bind(wxEVT_SYS_COLOUR_CHANGED, [this](wxSysColourChangedEvent& evt) {
-		SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
-		SetForegroundColour(wxWindow::GetParent()->GetForegroundColour());
+		SetBackgroundColour(GetInterfaceColour(interface_colour::input));
+		SetForegroundColour(GetInterfaceColour(interface_colour::text));
 		evt.Skip();
 	});
 #endif

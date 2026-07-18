@@ -14,6 +14,11 @@ visíveis e o registro de mensagens fica como uma aba da fila de transferências
 Na primeira execução após a atualização, esse perfil é aplicado uma única vez;
 mudanças feitas pelo usuário depois disso permanecem salvas.
 
+A aparência inicia em **Automático**, acompanhando a preferência de cores do
+sistema operacional. Para escolher um modo fixo, abra **Editar > Configurações
+> Interface > Temas** e selecione **Claro** ou **Escuro** em "Tema do
+aplicativo". Reinicie o FileZilla depois de alterar essa opção.
+
 ## Uso rápido
 
 Na raiz do projeto, execute:
@@ -66,6 +71,8 @@ execute `pacman -Syu` novamente antes de instalar as dependências.
 
 - Interface gráfica, FTP, FTPS, SFTP, gerenciador de sites e traduções estão
   habilitados.
+- Os modos automático, claro e escuro abrangem janelas, menus, campos, árvores,
+  listas e diálogos criados durante a execução.
 - A verificação automática de atualização fica desativada no executável de
   desenvolvimento.
 - A extensão de menu do Explorer não é compilada. Ela exige também o toolchain

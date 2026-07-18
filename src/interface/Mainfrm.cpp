@@ -1650,6 +1650,7 @@ void CMainFrame::OnMenuEditSettings(wxCommandEvent&)
 	}
 
 	std::wstring const oldLang = options_.get_string(OPTION_LANGUAGE);
+	int const oldAppearance = options_.get_int(OPTION_INTERFACE_APPEARANCE);
 
 	int oldShowDebugMenu = options_.get_int(OPTION_DEBUG_MENU) != 0;
 
@@ -1667,6 +1668,9 @@ void CMainFrame::OnMenuEditSettings(wxCommandEvent&)
 	}
 	if (oldLang != newLang) {
 		wxMessageBoxEx(_("FileZilla needs to be restarted for the language change to take effect."), _("Language changed"), wxICON_INFORMATION, this);
+	}
+	if (oldAppearance != options_.get_int(OPTION_INTERFACE_APPEARANCE)) {
+		wxMessageBoxEx(_("FileZilla needs to be restarted for the theme change to take effect."), _("Theme changed"), wxICON_INFORMATION, this);
 	}
 
 	CheckChangedSettings();

@@ -118,7 +118,8 @@ static unsigned int register_interface_options()
 		{ "Tab data", L"", option_flags::normal | option_flags::sensitive_data, option_type::xml },
 		{ "Highest shown overlay id", 0, option_flags::normal },
 		{ "Resolve local symlinks", DEFAULT_LOCAL_SYMLINK_RESOLVE, option_flags::platform },
-		{ "Interface layout profile version", 0, option_flags::normal }
+		{ "Interface layout profile version", 0, option_flags::normal },
+		{ "Interface appearance", 0, option_flags::numeric_clamp, 0, 2 }
 	});
 	return value;
 }

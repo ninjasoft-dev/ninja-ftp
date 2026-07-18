@@ -3,6 +3,7 @@
 
 #include <wx/rawbmp.h>
 #include <wx/window.h>
+#include <wx/eventfilter.h>
 
 #include "../commonui/site_color.h"
 
@@ -61,6 +62,46 @@ static inline wxColour AlphaComposite_Over(wxColour const& bg, wxColour const& f
 void Overlay(wxBitmap& bg, wxBitmap const& fg);
 
 wxColour site_colour_to_wx(site_colour);
+
+enum class interface_appearance
+{
+	automatic,
+	light,
+	dark
+};
+
+enum class interface_colour
+{
+	panel,
+	input,
+	text
+};
+
+// Mantém a paleta do wxWidgets e dos controles nativos coerente em todas as janelas.
+class CInterfaceAppearance final : public wxEventFilter
+{
+public:
+	explicit CInterfaceAppearance(interface_appearance appearance);
+	~CInterfaceAppearance() override;
+
+	int FilterEvent(wxEvent& event) override;
+
+	bool IsDark() const { return dark_; }
+	wxColour GetColour(interface_colour role) const;
+
+private:
+	void Apply(wxWindow& window);
+	void ApplyRecursively(wxWindow& window);
+	void ConfigureNativeAppearance();
+	void QueueSystemAppearanceUpdate();
+
+	interface_appearance configured_{};
+	bool dark_{};
+	bool update_pending_{};
+};
+
+bool IsDarkInterface();
+wxColour GetInterfaceColour(interface_colour role);
 
 class CWindowTinter final
 {

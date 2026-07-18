@@ -116,6 +116,7 @@ protected:
 
 struct COptionsPageThemes::impl final
 {
+	wxChoice* appearance_{};
 	wxChoice* theme_{};
 	wxStaticText* author_{};
 	wxStaticText* email_{};
@@ -138,8 +139,21 @@ bool COptionsPageThemes::CreateControls(wxWindow* parent)
 	Create(parent);
 	auto main = lay.createFlex(1);
 	main->AddGrowableCol(0);
-	main->AddGrowableRow(1);
+	main->AddGrowableRow(2);
 	SetSizer(main);
+
+	{
+		auto [box, inner] = lay.createStatBox(main, _("Appearance"), 2);
+		inner->Add(new wxStaticText(box, nullID, _("&Application theme:")), lay.valign);
+		impl_->appearance_ = new wxChoice(box, nullID);
+		impl_->appearance_->Append(_("Automatic (system setting)"));
+		impl_->appearance_->Append(_("Light"));
+		impl_->appearance_->Append(_("Dark"));
+		inner->Add(impl_->appearance_, lay.valign);
+		inner->AddSpacer(0);
+		inner->Add(new wxStaticText(box, nullID,
+			_("Restart FileZilla after changing the application theme.")), lay.valign);
+	}
 
 	{
 		auto [box, inner] = lay.createStatBox(main, _("Select Theme"), 2);
@@ -181,6 +195,7 @@ bool COptionsPageThemes::CreateControls(wxWindow* parent)
 
 bool COptionsPageThemes::LoadPage()
 {
+	impl_->appearance_->SetSelection(m_pOptions->get_int(OPTION_INTERFACE_APPEARANCE));
 	return true;
 }
 
@@ -196,6 +211,7 @@ bool COptionsPageThemes::SavePage()
 	m_pOptions->set(OPTION_ICONS_THEME, theme.ToStdWstring());
 
 	m_pOptions->set(OPTION_ICONS_SCALE, static_cast<int>(100 * impl_->scale_->GetValue()));
+	m_pOptions->set(OPTION_INTERFACE_APPEARANCE, impl_->appearance_->GetSelection());
 
 	return true;
 }

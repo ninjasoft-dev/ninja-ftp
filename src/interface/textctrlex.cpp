@@ -1,6 +1,7 @@
 #include "filezilla.h"
 
 #include "textctrlex.h"
+#include "graphics.h"
 
 wxTextCtrlEx::wxTextCtrlEx(wxWindow* parent, int id, wxString const& value, wxPoint const& pos, wxSize const& size, long style)
 	: wxTextCtrl(parent, id, value, pos, size, style)
@@ -13,7 +14,8 @@ wxTextCtrlEx::wxTextCtrlEx(wxWindow* parent, int id, wxString const& value, wxPo
 #ifdef __WXMSW__
 	if (style & wxTE_MULTILINE && style & wxTE_READONLY) {
 		Bind(wxEVT_SYS_COLOUR_CHANGED, [this](wxSysColourChangedEvent& evt) {
-			SetBackgroundColour(GetClassDefaultAttributes().colBg);
+			SetBackgroundColour(GetInterfaceColour(interface_colour::input));
+			SetForegroundColour(GetInterfaceColour(interface_colour::text));
 			evt.Skip();
 		});
 	}

@@ -13,6 +13,7 @@
 #include "themeprovider.h"
 #include "wxfilesystem_blob_handler.h"
 #include "renderer.h"
+#include "graphics.h"
 #include "../commonui/fz_paths.h"
 #include "../include/version.h"
 #include <libfilezilla/local_filesys.hpp>
@@ -55,6 +56,7 @@ CFileZillaApp::CFileZillaApp()
 
 CFileZillaApp::~CFileZillaApp()
 {
+	appearance_.reset();
 	themeProvider_.reset();
 }
 
@@ -194,6 +196,8 @@ bool CFileZillaApp::OnInit()
 	options_ = std::make_unique<COptions>();
 
 	InitLocale();
+	appearance_ = std::make_unique<CInterfaceAppearance>(
+		static_cast<interface_appearance>(options_->get_int(OPTION_INTERFACE_APPEARANCE)));
 
 #ifndef _DEBUG
 	const wxString& buildType = CBuildInfo::GetBuildType();
