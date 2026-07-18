@@ -62,6 +62,9 @@ void CFileZillaApp::InitLocale()
 {
 	AddStartupProfileRecord("CFileZillaApp::InitLocale()"sv);
 	wxString language = options_->get_string(OPTION_LANGUAGE);
+	if (language.empty()) {
+		language = L"pt_BR";
+	}
 	const wxLanguageInfo* pInfo = wxLocale::FindLanguageInfo(language);
 	if (!language.empty()) {
 #ifdef __WXGTK__
@@ -531,4 +534,3 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR, int nCmd
 }
 }
 #endif
-

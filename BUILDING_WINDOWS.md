@@ -5,6 +5,9 @@ Este fork usa o ambiente **MSYS2 UCRT64** para gerar um executável nativo de
 somente a extensão do Explorer, que não é necessária para desenvolver ou
 avaliar a interface do cliente.
 
+A interface inicia em português do Brasil. Se o usuário selecionar outro
+idioma nas configurações, a escolha explícita continua sendo respeitada.
+
 ## Uso rápido
 
 Na raiz do projeto, execute:

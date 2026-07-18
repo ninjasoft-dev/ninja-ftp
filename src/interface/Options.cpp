@@ -43,7 +43,7 @@ static unsigned int register_interface_options()
 
 		// Normal UI options
 		{ "Number of Transfers", 2, option_flags::numeric_clamp, 1, 10 },
-		{ "Language Code", L"", option_flags::normal, 50 },
+		{ "Language Code", L"pt_BR", option_flags::normal, 50 },
 		{ "Concurrent download limit", 0, option_flags::numeric_clamp, 0, 10 },
 		{ "Concurrent upload limit", 0, option_flags::numeric_clamp, 0, 10 },
 		{ "Show debug menu", false, option_flags::normal },

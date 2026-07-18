@@ -3014,7 +3014,7 @@ msgstr "KMS ARN personalizado"
 
 #: ../src/interface/sitemanager_controls.cpp:1376
 msgid "Custom KMS ARN id cannot be empty."
-msgstr ""
+msgstr "O identificador ARN do KMS personalizado não pode estar vazio."
 
 #: ../src/interface/filter.cpp:135
 msgid "Custom filter set"
@@ -3022,11 +3022,11 @@ msgstr "Conjunto de filtros personalizado"
 
 #: ../src/interface/sitemanager_controls.cpp:1388
 msgid "Custom key cannot be empty."
-msgstr ""
+msgstr "A chave personalizada não pode estar vazia."
 
 #: ../src/interface/sitemanager_controls.cpp:1402
 msgid "Custom key length must be 256-bit."
-msgstr ""
+msgstr "O tamanho da chave personalizada deve ser de 256 bits."
 
 #: ../src/interface/resources/xrc/dialogs.xrc:1880
 #: ../src/interface/resources/xrc/dialogs.xrc:1894

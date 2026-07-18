@@ -108,6 +108,14 @@ $portableBin = Join-Path $buildDirectory "stage\ucrt64\bin"
 $dependencyDirectory = Join-Path $buildDirectory "data\dlls_gui"
 Copy-Item -Path (Join-Path $dependencyDirectory "*.dll") -Destination $portableBin -Force
 
+$libfilezillaCatalog = Join-Path $msysRoot "ucrt64\share\locale\pt_BR\LC_MESSAGES\libfilezilla.mo"
+$portableLocaleDirectory = Join-Path $buildDirectory "stage\ucrt64\share\locale\pt_BR\LC_MESSAGES"
+if (-not (Test-Path -LiteralPath $libfilezillaCatalog)) {
+    throw "Catálogo pt-BR da libfilezilla não encontrado: $libfilezillaCatalog"
+}
+New-Item -ItemType Directory -Path $portableLocaleDirectory -Force | Out-Null
+Copy-Item -LiteralPath $libfilezillaCatalog -Destination $portableLocaleDirectory -Force
+
 $executablePath = Join-Path $portableBin "filezilla.exe"
 if (-not (Test-Path -LiteralPath $executablePath)) {
     throw "O executável não foi encontrado depois da compilação."
