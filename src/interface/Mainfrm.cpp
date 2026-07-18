@@ -83,6 +83,30 @@ wxDEFINE_EVENT(fzEVT_TASKBAR_CLICK_DELAYED, wxCommandEvent);
 
 static int tab_hotkey_ids[10];
 
+namespace {
+constexpr int compact_layout_profile_version = 1;
+
+void ApplyCompactLayoutProfile(COptions& options)
+{
+	if (options.get_int(OPTION_INTERFACE_LAYOUT_PROFILE_VERSION) >= compact_layout_profile_version) {
+		return;
+	}
+
+	// A migração ocorre uma única vez; alterações posteriores do usuário são preservadas.
+	options.set(OPTION_SHOW_QUICKCONNECT, true);
+	options.set(OPTION_TOOLBAR_HIDDEN, false);
+	options.set(OPTION_SHOW_MESSAGELOG, true);
+	options.set(OPTION_MESSAGELOG_POSITION, 2);
+	options.set(OPTION_SHOW_QUEUE, true);
+	options.set(OPTION_SHOW_TREE_LOCAL, true);
+	options.set(OPTION_SHOW_TREE_REMOTE, false);
+	options.set(OPTION_FILEPANE_LAYOUT, 0);
+	options.set(OPTION_FILEPANE_SWAP, false);
+	options.set(OPTION_MAINWINDOW_SPLITTER_POSITION, L"");
+	options.set(OPTION_INTERFACE_LAYOUT_PROFILE_VERSION, compact_layout_profile_version);
+}
+}
+
 #if FZ_MANUALUPDATECHECK
 static int GetAvailableUpdateMenuId()
 {
@@ -332,6 +356,7 @@ CMainFrame::CMainFrame(COptions& options)
 	, m_comparisonToggleAcceleratorId(wxNewId())
 {
 	wxGetApp().AddStartupProfileRecord("CMainFrame::CMainFrame"sv);
+	ApplyCompactLayoutProfile(options_);
 	wxRect screen_size = CWindowStateManager::GetScreenDimensions();
 
 	wxSize initial_size;
@@ -566,17 +591,22 @@ void CMainFrame::HandleResize()
 		return;
 	}
 
+	int contentTop{};
 	if (m_pQuickconnectBar) {
-		m_pQuickconnectBar->SetSize(0, 0, clientSize.GetWidth(), -1, wxSIZE_USE_EXISTING);
+		m_pQuickconnectBar->SetSize(0, contentTop, clientSize.GetWidth(), -1, wxSIZE_USE_EXISTING);
+		contentTop += m_pQuickconnectBar->GetSize().GetHeight();
+	}
+	if (m_pToolBar && m_pToolBar->IsShown()) {
+		m_pToolBar->SetSize(0, contentTop, clientSize.GetWidth(), -1, wxSIZE_USE_EXISTING);
+		contentTop += m_pToolBar->GetSize().GetHeight();
 	}
 	if (m_pTopSplitter) {
-		if (!m_pQuickconnectBar) {
-			m_pTopSplitter->SetSize(0, 0, clientSize.GetWidth(), clientSize.GetHeight());
-		}
-		else {
-			wxSize panelSize = m_pQuickconnectBar->GetSize();
-			m_pTopSplitter->SetSize(0, panelSize.GetHeight(), clientSize.GetWidth(), clientSize.GetHeight() - panelSize.GetHeight());
-		}
+		m_pTopSplitter->SetSize(
+			0,
+			contentTop,
+			clientSize.GetWidth(),
+			wxMax(0, clientSize.GetHeight() - contentTop)
+		);
 	}
 }
 
@@ -618,12 +648,7 @@ void CMainFrame::CreateQuickconnectBar()
 
 	m_pQuickconnectBar = new CQuickconnectBar(*this);
 
-	wxSize clientSize = GetClientSize();
-	if (m_pTopSplitter) {
-		wxSize panelSize = m_pQuickconnectBar->GetSize();
-		m_pTopSplitter->SetSize(-1, panelSize.GetHeight(), -1, clientSize.GetHeight() - panelSize.GetHeight(), wxSIZE_USE_EXISTING);
-	}
-	m_pQuickconnectBar->SetSize(0, 0, clientSize.GetWidth(), -1);
+	HandleResize();
 }
 
 void CMainFrame::OnMenuHandler(wxCommandEvent &event)
@@ -1139,7 +1164,6 @@ bool CMainFrame::CreateMainToolBar()
 			options_.set(OPTION_TOOLBAR_HIDDEN, m_pToolBar->IsShown() ? 0 : 1);
 		}
 #endif
-		SetToolBar(0);
 		delete m_pToolBar;
 		m_pToolBar = 0;
 	}
@@ -1162,6 +1186,7 @@ bool CMainFrame::CreateMainToolBar()
 	if (m_pQuickconnectBar) {
 		m_pQuickconnectBar->Refresh();
 	}
+	HandleResize();
 
 	return true;
 }
@@ -2073,7 +2098,10 @@ void CMainFrame::OnSitemanagerDropdown(wxCommandEvent& event)
 
 	std::unique_ptr<wxMenu> pMenu = CSiteManager::GetSitesMenu();
 	if (pMenu) {
-		ShowDropdownMenu(pMenu.release(), m_pToolBar, event);
+		auto toolBar = m_pToolBar->GetToolBarForTool(event.GetId());
+		if (toolBar) {
+			ShowDropdownMenu(pMenu.release(), toolBar, event);
+		}
 	}
 }
 
@@ -2530,7 +2558,13 @@ void CMainFrame::OnToolbarComparisonDropdown(wxCommandEvent& event)
 
 	menu->Check(XRCID("ID_COMPARE_HIDEIDENTICAL"), options_.get_int(OPTION_COMPARE_HIDEIDENTICAL) != 0);
 
-	ShowDropdownMenu(menu, m_pToolBar, event);
+	auto toolBar = m_pToolBar->GetToolBarForTool(event.GetId());
+	if (toolBar) {
+		ShowDropdownMenu(menu, toolBar, event);
+	}
+	else {
+		delete menu;
+	}
 }
 
 void CMainFrame::ShowDropdownMenu(wxMenu* pMenu, wxToolBar* pToolBar, wxCommandEvent& event)
@@ -2914,8 +2948,8 @@ void CMainFrame::OnToggleToolBar(wxCommandEvent& event)
 	if (m_pToolBar) {
 		m_pToolBar->UpdateToolbarState();
 	}
-	HandleResize();
 #endif
+	HandleResize();
 }
 
 void CMainFrame::FixTabOrder()

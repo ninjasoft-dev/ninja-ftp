@@ -5,28 +5,29 @@
 
 #include "option_change_event_handler.h"
 
+#include <wx/panel.h>
 #include <wx/toolbar.h>
 
 class CMainFrame;
 
-class CToolBar final : public wxToolBar, public CGlobalStateEventHandler, public COptionChangeEventHandler
+class CToolBar final : public wxPanel, public CGlobalStateEventHandler, public COptionChangeEventHandler
 {
 public:
 	CToolBar(CMainFrame& mainFrame, COptions& options);
 	virtual ~CToolBar();
 
 	void UpdateToolbarState();
+	void ToggleTool(int id, bool toggle);
+	void EnableTool(int id, bool enable);
+	wxToolBar* GetToolBarForTool(int id) const;
 
 	bool ShowTool(int id);
 	bool HideTool(int id);
 
-#ifdef __WXMSW__
-	virtual bool Realize();
-#endif
-
 protected:
-	void MakeTool(char const* id, std::wstring const& art, wxString const& tooltip, wxString const& help = wxString(), wxItemKind type = wxITEM_NORMAL);
+	void MakeTool(wxToolBar& toolbar, char const* id, std::wstring const& art, wxString const& tooltip, wxString const& help = wxString(), wxItemKind type = wxITEM_NORMAL);
 	void MakeTools();
+	wxToolBar* FindToolBar(int id) const;
 
 	virtual void OnStateChange(CState* pState, t_statechange_notifications notification, std::wstring const& data, const void* data2) override;
 	virtual void OnOptionsChanged(watched_options const& options);
@@ -34,13 +35,16 @@ protected:
 	CMainFrame & mainFrame_;
 	COptions & options_;
 
-	std::map<int, wxToolBarToolBase*> m_hidden_tools;
+	struct HiddenTool final
+	{
+		wxToolBar* toolbar{};
+		int position{};
+		wxToolBarToolBase* tool{};
+	};
 
-#ifdef __WXMSW__
-	virtual void DoSetToolBitmapSize(wxSize const&) override;
-	std::unique_ptr<wxImageList> toolImages_;
-	std::unique_ptr<wxImageList> disabledToolImages_;
-#endif
+	wxToolBar* localToolBar_{};
+	wxToolBar* remoteToolBar_{};
+	std::map<int, HiddenTool> hiddenTools_;
 
 	wxSize iconSize_;
 };

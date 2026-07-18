@@ -8,6 +8,12 @@ avaliar a interface do cliente.
 A interface inicia em português do Brasil. Se o usuário selecionar outro
 idioma nas configurações, a escolha explícita continua sendo respeitada.
 
+O layout compacto aproxima a navegação da interface clássica: as ações são
+divididas entre os lados local e remoto, a árvore remota inicia recolhida e o
+registro de mensagens fica como uma aba da fila de transferências. Na primeira
+execução após a atualização, esse perfil é aplicado uma única vez; mudanças
+feitas pelo usuário depois disso permanecem salvas.
+
 ## Uso rápido
 
 Na raiz do projeto, execute:

@@ -54,7 +54,7 @@ static unsigned int register_interface_options()
 		{ "Greeting resources", L"", option_flags::normal },
 		{ "Onetime Dialogs", L"", option_flags::normal },
 		{ "Show Tree Local", true, option_flags::normal },
-		{ "Show Tree Remote", true, option_flags::normal },
+		{ "Show Tree Remote", false, option_flags::normal },
 		{ "File Pane Layout", 0, option_flags::normal, 0, 3 },
 		{ "File Pane Swap", false, option_flags::normal },
 		{ "Filelist directory sort", 0, option_flags::normal, 0, 2 },
@@ -87,7 +87,7 @@ static unsigned int register_interface_options()
 		{ "Filelist status bar", true, option_flags::normal },
 		{ "Filter toggle state", false, option_flags::normal },
 		{ "Show quickconnect bar", true, option_flags::normal },
-		{ "Messagelog position", 0, option_flags::normal, 0, 2 },
+		{ "Messagelog position", 2, option_flags::normal, 0, 2 },
 		{ "File doubleclick action", 0, option_flags::normal, 0, 3 },
 		{ "Dir doubleclick action", 0, option_flags::normal, 0, 3 },
 		{ "Minimize to tray", false, option_flags::normal },
@@ -117,7 +117,8 @@ static unsigned int register_interface_options()
 		{ "Disable update footer", false, option_flags::normal },
 		{ "Tab data", L"", option_flags::normal | option_flags::sensitive_data, option_type::xml },
 		{ "Highest shown overlay id", 0, option_flags::normal },
-		{ "Resolve local symlinks", DEFAULT_LOCAL_SYMLINK_RESOLVE, option_flags::platform }
+		{ "Resolve local symlinks", DEFAULT_LOCAL_SYMLINK_RESOLVE, option_flags::platform },
+		{ "Interface layout profile version", 0, option_flags::normal }
 	});
 	return value;
 }
