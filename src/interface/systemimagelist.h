@@ -25,7 +25,13 @@ public:
 	wxImageListEx(int width, int height, const bool mask = true, int initialCount = 1);
 
 #ifdef __WXMSW__
-	wxImageListEx(WXHIMAGELIST hList) { m_hImageList = hList; }
+	wxImageListEx(WXHIMAGELIST hList, int size)
+	{
+		m_hImageList = hList;
+
+		// O wxWidgets precisa das dimensões para calcular corretamente o recuo da árvore.
+		m_size = wxSize(size, size);
+	}
 	HIMAGELIST GetHandle() const { return reinterpret_cast<HIMAGELIST>(m_hImageList); }
 	HIMAGELIST Detach();
 #endif

@@ -80,7 +80,7 @@ bool CSystemImageList::CreateSystemImageList(int size)
 		return false;
 	}
 
-	m_pImageList = new wxImageListEx(reinterpret_cast<WXHIMAGELIST>(imageList));
+	m_pImageList = new wxImageListEx(reinterpret_cast<WXHIMAGELIST>(imageList), size);
 #else
 	m_pImageList = new wxImageListEx(size, size);
 
