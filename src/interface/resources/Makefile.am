@@ -31,7 +31,7 @@ dist_resources480_DATA = 480x480/filezilla.png
 if USE_RESOURCEFILE
 nodist_noinst_DATA = filezilla.o
 
-filezilla.o: $(srcdir)/filezilla.rc $(srcdir)/windows_manifest.xml version.rc
+filezilla.o: $(srcdir)/filezilla.rc $(srcdir)/NinjaTransfer.ico $(srcdir)/windows_manifest.xml version.rc
 	@if [ -f $@~ ]; then rm $@~; fi
 	@WINDRES@ --include-dir=. --include-dir=$(srcdir) $(srcdir)/filezilla.rc -D GNU_WINDRES -D HAS_VERSIONRC $@~ || rm $@~
 	@if [ -f $@ ]; then rm $@; fi
@@ -40,7 +40,7 @@ endif
 
 dist_noinst_DATA = \
 	filezilla.rc \
-	FileZilla.ico \
+	NinjaTransfer.ico \
 	FileZilla.icns \
 	filezilla.entitlements \
 	MacInfo.plist.in \

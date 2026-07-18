@@ -10,11 +10,249 @@
 #include "filezillaapp.h"
 #include "graphics.h"
 #include "textctrlex.h"
-#include "themeprovider.h"
 
-#include <wx/bmpbuttn.h>
+#include <wx/control.h>
+#include <wx/dcbuffer.h>
 #include <wx/menu.h>
 #include <wx/statline.h>
+
+#include <functional>
+
+namespace {
+
+class CModernSplitButton final : public wxControl
+{
+public:
+	CModernSplitButton(wxWindow* parent, wxString label, int actionId, int menuId)
+		: wxControl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE | wxWANTS_CHARS)
+		, label_(std::move(label))
+		, actionId_(actionId)
+		, menuId_(menuId)
+	{
+		SetBackgroundStyle(wxBG_STYLE_PAINT);
+		SetCursor(wxCursor(wxCURSOR_HAND));
+		SetToolTip(_("Connect to the server or choose a recent connection"));
+
+		wxClientDC dc(this);
+		dc.SetFont(GetFont());
+		auto const textSize = dc.GetTextExtent(label_);
+		SetMinSize(wxSize(textSize.GetWidth() + FromDIP(58), FromDIP(32)));
+
+		Bind(wxEVT_PAINT, &CModernSplitButton::OnPaint, this);
+		Bind(wxEVT_ENTER_WINDOW, [this](wxMouseEvent&) {
+			hovered_ = true;
+			Refresh();
+		});
+		Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent&) {
+			hovered_ = false;
+			pressed_ = false;
+			Refresh();
+		});
+		Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent&) {
+			pressed_ = true;
+			SetFocus();
+			if (!HasCapture()) {
+				CaptureMouse();
+			}
+			Refresh();
+		});
+		Bind(wxEVT_LEFT_UP, &CModernSplitButton::OnLeftUp, this);
+		Bind(wxEVT_KEY_DOWN, &CModernSplitButton::OnKeyDown, this);
+		Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent& event) {
+			Refresh();
+			event.Skip();
+		});
+		Bind(wxEVT_KILL_FOCUS, [this](wxFocusEvent& event) {
+			Refresh();
+			event.Skip();
+		});
+	}
+
+private:
+	void Activate(bool menu)
+	{
+		wxCommandEvent event(wxEVT_BUTTON, menu ? menuId_ : actionId_);
+		event.SetEventObject(this);
+		ProcessWindowEvent(event);
+	}
+
+	void OnLeftUp(wxMouseEvent& event)
+	{
+		if (HasCapture()) {
+			ReleaseMouse();
+		}
+		bool const activate = pressed_ && GetClientRect().Contains(event.GetPosition());
+		pressed_ = false;
+		Refresh();
+		if (activate) {
+			Activate(event.GetX() >= GetClientSize().GetWidth() - FromDIP(34));
+		}
+	}
+
+	void OnKeyDown(wxKeyEvent& event)
+	{
+		if (event.GetKeyCode() == WXK_DOWN) {
+			Activate(true);
+		}
+		else if (event.GetKeyCode() == WXK_RETURN || event.GetKeyCode() == WXK_SPACE) {
+			Activate(false);
+		}
+		else {
+			event.Skip();
+		}
+	}
+
+	void OnPaint(wxPaintEvent&)
+	{
+		wxAutoBufferedPaintDC dc(this);
+		dc.SetBackground(wxBrush(GetInterfaceColour(interface_colour::panel)));
+		dc.Clear();
+
+		wxRect button = GetClientRect();
+		button.Deflate(1);
+		auto const fill = hovered_ || pressed_ ? interface_colour::accent_hover : interface_colour::accent;
+		dc.SetPen(wxPen(GetInterfaceColour(interface_colour::accent)));
+		dc.SetBrush(wxBrush(GetInterfaceColour(fill)));
+		dc.DrawRoundedRectangle(button, FromDIP(6));
+
+		int const menuWidth = FromDIP(34);
+		int const separator = button.GetRight() - menuWidth;
+		dc.SetPen(wxPen(GetInterfaceColour(interface_colour::border)));
+		dc.DrawLine(separator, button.GetTop() + FromDIP(5), separator, button.GetBottom() - FromDIP(5));
+
+		auto font = GetFont();
+		font.SetWeight(wxFONTWEIGHT_BOLD);
+		dc.SetFont(font);
+		dc.SetTextForeground(GetInterfaceColour(interface_colour::accent_text));
+		wxRect labelRect = button;
+		labelRect.SetRight(separator - 1);
+		dc.DrawLabel(label_, labelRect, wxALIGN_CENTER);
+
+		int const centreX = separator + menuWidth / 2;
+		int const centreY = button.GetTop() + button.GetHeight() / 2;
+		dc.SetPen(wxPen(GetInterfaceColour(interface_colour::accent_text), FromDIP(2)));
+		dc.DrawLine(centreX - FromDIP(4), centreY - FromDIP(2), centreX, centreY + FromDIP(2));
+		dc.DrawLine(centreX, centreY + FromDIP(2), centreX + FromDIP(4), centreY - FromDIP(2));
+
+		if (HasFocus()) {
+			wxRect focus = button;
+			focus.Deflate(FromDIP(3));
+			dc.SetPen(wxPen(GetInterfaceColour(interface_colour::accent_text), 1, wxPENSTYLE_DOT));
+			dc.SetBrush(*wxTRANSPARENT_BRUSH);
+			dc.DrawRoundedRectangle(focus, FromDIP(4));
+		}
+	}
+
+	wxString label_;
+	int actionId_{};
+	int menuId_{};
+	bool hovered_{};
+	bool pressed_{};
+};
+
+class CThemeSelector final : public wxControl
+{
+public:
+	CThemeSelector(wxWindow* parent, std::function<void(interface_appearance)> onChange)
+		: wxControl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE | wxWANTS_CHARS)
+		, onChange_(std::move(onChange))
+	{
+		SetBackgroundStyle(wxBG_STYLE_PAINT);
+		SetCursor(wxCursor(wxCURSOR_HAND));
+		SetMinSize(FromDIP(wxSize(146, 32)));
+		SetToolTip(_("Switch between light and dark mode"));
+
+		Bind(wxEVT_PAINT, &CThemeSelector::OnPaint, this);
+		Bind(wxEVT_MOTION, [this](wxMouseEvent& event) {
+			hoveredSegment_ = event.GetX() < GetClientSize().GetWidth() / 2 ? 0 : 1;
+			Refresh();
+		});
+		Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent&) {
+			hoveredSegment_ = -1;
+			Refresh();
+		});
+		Bind(wxEVT_LEFT_UP, [this](wxMouseEvent& event) {
+			SetFocus();
+			Select(event.GetX() < GetClientSize().GetWidth() / 2 ? interface_appearance::light : interface_appearance::dark);
+		});
+		Bind(wxEVT_KEY_DOWN, [this](wxKeyEvent& event) {
+			if (event.GetKeyCode() == WXK_LEFT) {
+				Select(interface_appearance::light);
+			}
+			else if (event.GetKeyCode() == WXK_RIGHT || event.GetKeyCode() == WXK_SPACE) {
+				Select(interface_appearance::dark);
+			}
+			else {
+				event.Skip();
+			}
+		});
+		Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent& event) {
+			Refresh();
+			event.Skip();
+		});
+		Bind(wxEVT_KILL_FOCUS, [this](wxFocusEvent& event) {
+			Refresh();
+			event.Skip();
+		});
+	}
+
+private:
+	void Select(interface_appearance appearance)
+	{
+		onChange_(appearance);
+		Refresh();
+	}
+
+	void OnPaint(wxPaintEvent&)
+	{
+		wxAutoBufferedPaintDC dc(this);
+		dc.SetBackground(wxBrush(GetInterfaceColour(interface_colour::panel)));
+		dc.Clear();
+
+		wxRect outer = GetClientRect();
+		outer.Deflate(1);
+		dc.SetPen(wxPen(GetInterfaceColour(interface_colour::border)));
+		dc.SetBrush(wxBrush(GetInterfaceColour(interface_colour::surface_strong)));
+		dc.DrawRoundedRectangle(outer, FromDIP(8));
+
+		int const selected = IsDarkInterface() ? 1 : 0;
+		wxRect active = outer;
+		active.SetWidth(outer.GetWidth() / 2);
+		if (selected == 1) {
+			active.Offset(outer.GetWidth() - active.GetWidth(), 0);
+		}
+		active.Deflate(FromDIP(2));
+		dc.SetPen(*wxTRANSPARENT_PEN);
+		dc.SetBrush(wxBrush(GetInterfaceColour(interface_colour::accent)));
+		dc.DrawRoundedRectangle(active, FromDIP(6));
+
+		auto font = GetFont();
+		font.SetWeight(wxFONTWEIGHT_BOLD);
+		dc.SetFont(font);
+		for (int segment = 0; segment < 2; ++segment) {
+			wxRect labelRect = outer;
+			labelRect.SetWidth(outer.GetWidth() / 2);
+			if (segment == 1) {
+				labelRect.Offset(outer.GetWidth() - labelRect.GetWidth(), 0);
+			}
+			auto const textRole = segment == selected ? interface_colour::accent_text :
+				(segment == hoveredSegment_ ? interface_colour::text : interface_colour::muted);
+			dc.SetTextForeground(GetInterfaceColour(textRole));
+			dc.DrawLabel(segment == 0 ? _("Light") : _("Dark"), labelRect, wxALIGN_CENTER);
+		}
+
+		if (HasFocus()) {
+			dc.SetPen(wxPen(GetInterfaceColour(interface_colour::accent), 1, wxPENSTYLE_DOT));
+			dc.SetBrush(*wxTRANSPARENT_BRUSH);
+			dc.DrawRoundedRectangle(outer, FromDIP(8));
+		}
+	}
+
+	std::function<void(interface_appearance)> onChange_;
+	int hoveredSegment_{-1};
+};
+
+}
 
 BEGIN_EVENT_TABLE(CQuickconnectBar, wxPanel)
 EVT_BUTTON(XRCID("ID_QUICKCONNECT_OK"), CQuickconnectBar::OnQuickconnect)
@@ -37,7 +275,9 @@ CQuickconnectBar::CQuickconnectBar(CMainFrame & parent)
 	DialogLayout layout(&parent);
 	auto mainSizer = layout.createFlex(0, 1);
 	int const padding = FromDIP(8);
-	sizer->Add(mainSizer, wxSizerFlags().Border(wxALL, padding));
+	auto rowSizer = new wxBoxSizer(wxHORIZONTAL);
+	sizer->Add(rowSizer, wxSizerFlags().Expand().Border(wxALL, padding));
+	rowSizer->Add(mainSizer, wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
 
 	auto addLabel = [this, mainSizer](wxString const& text) {
 		auto label = new wxStaticText(this, nullID, text);
@@ -76,28 +316,16 @@ CQuickconnectBar::CQuickconnectBar(CMainFrame & parent)
 	prepareInput(m_pPort);
 	mainSizer->Add(m_pPort, wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL).Border(wxRIGHT, 5));
 
-	auto connectSizer = new wxBoxSizer(wxHORIZONTAL);
-	mainSizer->Add(connectSizer, wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
-	auto connect = new wxButton(this, XRCID("ID_QUICKCONNECT_OK"), _("&Quickconnect"));
-	connect->SetName(L"ninja-accent-button");
-	connect->SetMinSize(wxSize(-1, FromDIP(30)));
-	connect->SetDefault();
-	connectSizer->Add(connect, wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
+	connectButton_ = new CModernSplitButton(
+		this, _("Quickconnect"), XRCID("ID_QUICKCONNECT_OK"), XRCID("ID_QUICKCONNECT_DROPDOWN"));
+	mainSizer->Add(connectButton_, wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
 
-	wxBitmap bmp = CThemeProvider::Get()->CreateBitmap(L"ART_DROPDOWN", wxART_OTHER, CThemeProvider::GetIconSize(iconSizeTiny));
-	auto flags = wxSizerFlags().Expand();
-#if defined(__WXMSW__)
-	wxSize dropdownSize = ConvertDialogToPixels(wxSize(12, -1));
-#elif defined(__WXMAC__)
-	wxSize dropdownSize(20, -1);
-	flags.Border(wxLEFT, 6);
-#else
-	wxSize dropdownSize(-1, -1);
-#endif
-	auto dropdown = new wxBitmapButton(this, XRCID("ID_QUICKCONNECT_DROPDOWN"), MakeBmpBundle(bmp), wxDefaultPosition, dropdownSize, wxBU_AUTODRAW | wxBU_EXACTFIT);
-	dropdown->SetName(L"ninja-accent-button");
-	dropdown->SetMinSize(wxSize(dropdownSize.x, FromDIP(30)));
-	connectSizer->Add(dropdown, flags);
+	rowSizer->AddStretchSpacer(1);
+	auto themeSelector = new CThemeSelector(this, [this](interface_appearance appearance) {
+		options_.set(OPTION_INTERFACE_APPEARANCE, static_cast<int>(appearance));
+		SetInterfaceAppearance(appearance);
+	});
+	rowSizer->Add(themeSelector, wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL).Border(wxLEFT, FromDIP(10)));
 
 #ifdef __WXMAC__
 	// Under OS X default buttons are toplevel window wide, where under Windows / GTK they stop at the parent panel.
@@ -246,9 +474,8 @@ void CQuickconnectBar::OnQuickconnectDropdown(wxCommandEvent& event)
 		pMenu->Enable(3, false);
 	}
 
-	auto * btn = XRCCTRL(*this, "ID_QUICKCONNECT_DROPDOWN", wxButton);
-	auto size = btn->GetSize() / 2;
-	btn->PopupMenu(pMenu, (event.GetEventType() == wxEVT_CHAR_HOOK) ? wxPoint(size.x, size.y) : wxDefaultPosition);
+	auto size = connectButton_->GetSize() / 2;
+	connectButton_->PopupMenu(pMenu, (event.GetEventType() == wxEVT_CHAR_HOOK) ? wxPoint(size.x, size.y) : wxDefaultPosition);
 	delete pMenu;
 	m_recentServers.clear();
 }

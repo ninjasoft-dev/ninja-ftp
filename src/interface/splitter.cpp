@@ -1,4 +1,5 @@
 #include "filezilla.h"
+#include "graphics.h"
 #include "splitter.h"
 
 BEGIN_EVENT_TABLE(CSplitterWindowEx, wxSplitterWindow)
@@ -17,6 +18,37 @@ CSplitterWindowEx::CSplitterWindowEx(wxWindow* parent, wxWindowID id, wxPoint co
 bool CSplitterWindowEx::Create(wxWindow* parent, wxWindowID id, wxPoint const& point, wxSize const& size, long style, wxString const& name)
 {
 	return wxSplitterWindow::Create(parent, id, point, size, style, name);
+}
+
+void CSplitterWindowEx::DrawSash(wxDC& dc)
+{
+	if (!IsSplit()) {
+		return;
+	}
+
+	auto const size = GetClientSize();
+	int const sashSize = GetSashSize();
+	wxRect sash;
+	if (GetSplitMode() == wxSPLIT_VERTICAL) {
+		sash = wxRect(m_sashPosition, 0, sashSize, size.GetHeight());
+	}
+	else {
+		sash = wxRect(0, m_sashPosition, size.GetWidth(), sashSize);
+	}
+
+	dc.SetPen(*wxTRANSPARENT_PEN);
+	dc.SetBrush(wxBrush(GetInterfaceColour(interface_colour::border)));
+	dc.DrawRectangle(sash);
+
+	dc.SetPen(wxPen(GetInterfaceColour(interface_colour::surface_strong)));
+	if (GetSplitMode() == wxSPLIT_VERTICAL) {
+		int const centre = sash.GetLeft() + sash.GetWidth() / 2;
+		dc.DrawLine(centre, sash.GetTop(), centre, sash.GetBottom());
+	}
+	else {
+		int const centre = sash.GetTop() + sash.GetHeight() / 2;
+		dc.DrawLine(sash.GetLeft(), centre, sash.GetRight(), centre);
+	}
 }
 
 void CSplitterWindowEx::SetSashGravity(double gravity)

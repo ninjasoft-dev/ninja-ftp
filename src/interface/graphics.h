@@ -80,6 +80,7 @@ enum class interface_colour
 	text,
 	muted,
 	accent,
+	accent_hover,
 	accent_text
 };
 
@@ -94,6 +95,7 @@ public:
 
 	bool IsDark() const { return dark_; }
 	wxColour GetColour(interface_colour role) const;
+	void SetAppearance(interface_appearance appearance);
 
 private:
 	friend void ApplyInterfaceAppearance(wxWindow& window);
@@ -111,6 +113,7 @@ private:
 bool IsDarkInterface();
 wxColour GetInterfaceColour(interface_colour role);
 void ApplyInterfaceAppearance(wxWindow& window);
+void SetInterfaceAppearance(interface_appearance appearance);
 
 class CWindowTinter final
 {

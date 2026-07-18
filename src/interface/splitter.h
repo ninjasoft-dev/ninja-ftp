@@ -27,6 +27,8 @@ public:
 	bool Unsplit(wxWindow* toRemove = NULL);
 
 protected:
+	void DrawSash(wxDC& dc) override;
+
 	void PrepareSplit(wxWindow* window1, wxWindow* window2, int & sashPosition, bool horizontal);
 
 	virtual int OnSashPositionChanging(int newSashPosition);

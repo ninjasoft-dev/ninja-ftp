@@ -1,4 +1,5 @@
 #include "filezilla.h"
+#include "branding.h"
 #ifdef _MSC_VER
 #pragma hdrstop
 #endif
@@ -147,7 +148,7 @@ bool CFileZillaApp::OnInit()
 {
 	AddStartupProfileRecord("CFileZillaApp::OnInit()"sv);
 
-	SetAppDisplayName("FileZilla");
+	SetAppDisplayName(branding::GetProductName());
 
 	// Turn off idle events, we don't need them
 	wxIdleEvent::SetMode(wxIDLE_PROCESS_SPECIFIED);
@@ -157,7 +158,7 @@ bool CFileZillaApp::OnInit()
 	fz::set_translators(translator, translator_pf);
 
 #ifdef __WXMSW__
-	SetCurrentProcessExplicitAppUserModelID(L"FileZilla.Client.AppID");
+	SetCurrentProcessExplicitAppUserModelID(branding::GetAppUserModelId());
 #endif
 
 	//wxSystemOptions is slow, if a value is not set, it keeps querying the environment

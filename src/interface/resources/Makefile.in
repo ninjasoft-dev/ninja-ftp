@@ -459,7 +459,7 @@ dist_resources480_DATA = 480x480/filezilla.png
 @USE_RESOURCEFILE_TRUE@nodist_noinst_DATA = filezilla.o
 dist_noinst_DATA = \
 	filezilla.rc \
-	FileZilla.ico \
+	NinjaTransfer.ico \
 	FileZilla.icns \
 	filezilla.entitlements \
 	MacInfo.plist.in \
@@ -1098,7 +1098,7 @@ uninstall-am: uninstall-dist_resources16DATA \
 .PRECIOUS: Makefile
 
 
-@USE_RESOURCEFILE_TRUE@filezilla.o: $(srcdir)/filezilla.rc $(srcdir)/windows_manifest.xml version.rc
+@USE_RESOURCEFILE_TRUE@filezilla.o: $(srcdir)/filezilla.rc $(srcdir)/NinjaTransfer.ico $(srcdir)/windows_manifest.xml version.rc
 @USE_RESOURCEFILE_TRUE@	@if [ -f $@~ ]; then rm $@~; fi
 @USE_RESOURCEFILE_TRUE@	@WINDRES@ --include-dir=. --include-dir=$(srcdir) $(srcdir)/filezilla.rc -D GNU_WINDRES -D HAS_VERSIONRC $@~ || rm $@~
 @USE_RESOURCEFILE_TRUE@	@if [ -f $@ ]; then rm $@; fi

@@ -30,6 +30,7 @@ protected:
 	wxTextCtrl* m_pUser{};
 	wxTextCtrl* m_pPass{};
 	wxTextCtrl* m_pPort{};
+	wxWindow* connectButton_{};
 
 	CMainFrame & mainFrame_;
 };

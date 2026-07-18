@@ -150,14 +150,11 @@ bool COptionsPageThemes::CreateControls(wxWindow* parent)
 		impl_->appearance_->Append(_("Light"));
 		impl_->appearance_->Append(_("Dark"));
 		inner->Add(impl_->appearance_, lay.valign);
-		inner->AddSpacer(0);
-		inner->Add(new wxStaticText(box, nullID,
-			_("Restart FileZilla after changing the application theme.")), lay.valign);
 	}
 
 	{
-		auto [box, inner] = lay.createStatBox(main, _("Select Theme"), 2);
-		inner->Add(new wxStaticText(box, nullID, _("&Theme:")), lay.valign);
+		auto [box, inner] = lay.createStatBox(main, _("Icon theme"), 2);
+		inner->Add(new wxStaticText(box, nullID, _("&Icon set:")), lay.valign);
 		impl_->theme_ = new wxChoice(box, nullID);
 		inner->Add(impl_->theme_);
 		inner->Add(new wxStaticText(box, nullID, _("Author:")), lay.valign);

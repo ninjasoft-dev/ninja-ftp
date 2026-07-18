@@ -4,6 +4,7 @@
 #include "aboutdialog.h"
 #include "asyncrequestqueue.h"
 #include "bookmarks_dialog.h"
+#include "branding.h"
 #include "buildinfo.h"
 #include "clearprivatedata.h"
 #include "cmdline.h"
@@ -17,6 +18,7 @@
 #include "filelist_statusbar.h"
 #include "filezillaapp.h"
 #include "filter_manager.h"
+#include "graphics.h"
 #include "import.h"
 #include "inputdialog.h"
 #include "list_search_panel.h"
@@ -226,10 +228,10 @@ protected:
 		if (notification == STATECHANGE_CHANGEDCONTEXT) {
 			// Update window title
 			if (!pState || !pState->GetSite()) {
-				m_pMainFrame->SetTitle(_T("FileZilla"));
+				m_pMainFrame->SetTitle(branding::GetWindowTitle());
 			}
 			else {
-				m_pMainFrame->SetTitle(pState->GetTitle() + _T(" - FileZilla"));
+				m_pMainFrame->SetTitle(pState->GetTitle() + L" — " + branding::GetProductName());
 			}
 
 			return;
@@ -260,10 +262,10 @@ protected:
 			if (pState == CContextManager::Get()->GetCurrentContext()) {
 				Site const& site = pState->GetSite();
 				if (!site) {
-					m_pMainFrame->SetTitle(_T("FileZilla"));
+					m_pMainFrame->SetTitle(branding::GetWindowTitle());
 				}
 				else {
-					m_pMainFrame->SetTitle(pState->GetTitle() + _T(" - FileZilla"));
+					m_pMainFrame->SetTitle(pState->GetTitle() + L" — " + branding::GetProductName());
 				}
 			}
 
@@ -389,7 +391,7 @@ CMainFrame::CMainFrame(COptions& options)
 	initial_size.x = wxMin(1200, screen_size.GetWidth() - 10);
 	initial_size.y = wxMin(950, screen_size.GetHeight() - 50);
 
-	Create(NULL, -1, _T("FileZilla"), wxDefaultPosition, initial_size);
+	Create(NULL, -1, branding::GetWindowTitle(), wxDefaultPosition, initial_size);
 	SetSizeHints(700, 500);
 
 #ifdef __WXMSW__
@@ -1670,7 +1672,8 @@ void CMainFrame::OnMenuEditSettings(wxCommandEvent&)
 		wxMessageBoxEx(_("FileZilla needs to be restarted for the language change to take effect."), _("Language changed"), wxICON_INFORMATION, this);
 	}
 	if (oldAppearance != options_.get_int(OPTION_INTERFACE_APPEARANCE)) {
-		wxMessageBoxEx(_("FileZilla needs to be restarted for the theme change to take effect."), _("Theme changed"), wxICON_INFORMATION, this);
+		SetInterfaceAppearance(static_cast<interface_appearance>(
+			options_.get_int(OPTION_INTERFACE_APPEARANCE)));
 	}
 
 	CheckChangedSettings();

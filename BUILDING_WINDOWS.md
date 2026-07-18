@@ -1,9 +1,9 @@
 # Compilação no Windows
 
-Este fork usa o ambiente **MSYS2 UCRT64** para gerar um executável nativo de
-64 bits. O fluxo abaixo mantém os artefatos em `build-ucrt64/` e desativa
-somente a extensão do Explorer, que não é necessária para desenvolver ou
-avaliar a interface do cliente.
+O **Ninja Transfer** usa o ambiente **MSYS2 UCRT64** para gerar um executável
+nativo de 64 bits. O fluxo abaixo mantém os artefatos em `build-ucrt64/` e
+desativa somente a extensão do Explorer, que não é necessária para desenvolver
+ou avaliar a interface do cliente.
 
 A interface inicia em português do Brasil. Se o usuário selecionar outro
 idioma nas configurações, a escolha explícita continua sendo respeitada.
@@ -15,9 +15,10 @@ Na primeira execução após a atualização, esse perfil é aplicado uma única
 mudanças feitas pelo usuário depois disso permanecem salvas.
 
 A aparência inicia em **Automático**, acompanhando a preferência de cores do
-sistema operacional. Para escolher um modo fixo, abra **Editar > Configurações
-> Interface > Temas** e selecione **Claro** ou **Escuro** em "Tema do
-aplicativo". Reinicie o FileZilla depois de alterar essa opção.
+sistema operacional. Na tela principal, o seletor no canto superior direito
+alterna entre **Claro** e **Escuro** imediatamente. O modo automático continua
+disponível em **Editar > Configurações > Interface > Temas**. A escolha de
+ícones permanece independente da aparência da aplicação.
 
 ## Uso rápido
 

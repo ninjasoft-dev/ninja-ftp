@@ -42,6 +42,32 @@ using DwmSetWindowAttributeFunction = HRESULT (WINAPI*)(HWND, DWORD, LPCVOID, DW
 
 constexpr UINT_PTR modernHeaderSubclassId = 0x4e534844;
 constexpr UINT_PTR modernStatusSubclassId = 0x4e535354;
+constexpr UINT_PTR modernFrameSubclassId = 0x4e534652;
+constexpr UINT_PTR modernMenuSubclassId = 0x4e534d4e;
+
+// O wxWidgets 3.2 não colore a barra de menu no Windows. Essas mensagens
+// preservam navegação e acessibilidade nativas, substituindo apenas a pintura.
+constexpr UINT wmUahDrawMenu = 0x0091;
+constexpr UINT wmUahDrawMenuItem = 0x0092;
+
+struct UahMenu
+{
+	HMENU menu;
+	HDC dc;
+	DWORD flags;
+};
+
+struct UahMenuItem
+{
+	int position;
+};
+
+struct UahDrawMenuItem
+{
+	DRAWITEMSTRUCT draw;
+	UahMenu menu;
+	UahMenuItem item;
+};
 
 template<typename Function>
 Function GetFunction(HMODULE module, char const* name)
@@ -242,6 +268,144 @@ LRESULT CALLBACK ModernStatusProc(HWND handle, UINT message, WPARAM wParam, LPAR
 	return DefSubclassProc(handle, message, wParam, lParam);
 }
 
+void PaintModernFrame(HWND handle)
+{
+	auto const extendedStyle = GetWindowLongPtrW(handle, GWL_EXSTYLE);
+	auto const style = GetWindowLongPtrW(handle, GWL_STYLE);
+	if (!(extendedStyle & (WS_EX_CLIENTEDGE | WS_EX_STATICEDGE)) && !(style & WS_BORDER)) {
+		return;
+	}
+
+	RECT windowRect{};
+	if (!GetWindowRect(handle, &windowRect)) {
+		return;
+	}
+
+	int const width = windowRect.right - windowRect.left;
+	int const height = windowRect.bottom - windowRect.top;
+	int const edgeX = extendedStyle & WS_EX_CLIENTEDGE ? GetSystemMetrics(SM_CXEDGE) : 1;
+	int const edgeY = extendedStyle & WS_EX_CLIENTEDGE ? GetSystemMetrics(SM_CYEDGE) : 1;
+	auto const dc = GetWindowDC(handle);
+	if (!dc) {
+		return;
+	}
+
+	auto const brush = CreateSolidBrush(ToColorRef(GetInterfaceColour(interface_colour::border)));
+	RECT top{0, 0, width, edgeY};
+	RECT bottom{0, height - edgeY, width, height};
+	RECT left{0, edgeY, edgeX, height - edgeY};
+	RECT right{width - edgeX, edgeY, width, height - edgeY};
+	FillRect(dc, &top, brush);
+	FillRect(dc, &bottom, brush);
+	FillRect(dc, &left, brush);
+	FillRect(dc, &right, brush);
+	DeleteObject(brush);
+	ReleaseDC(handle, dc);
+}
+
+LRESULT CALLBACK ModernFrameProc(HWND handle, UINT message, WPARAM wParam, LPARAM lParam,
+	UINT_PTR subclassId, DWORD_PTR)
+{
+	if (message == WM_NCDESTROY) {
+		RemoveWindowSubclass(handle, ModernFrameProc, subclassId);
+		return DefSubclassProc(handle, message, wParam, lParam);
+	}
+
+	auto const result = DefSubclassProc(handle, message, wParam, lParam);
+	if (message == WM_NCPAINT || message == WM_NCACTIVATE) {
+		PaintModernFrame(handle);
+	}
+	else if (message == WM_THEMECHANGED || message == WM_SETTINGCHANGE) {
+		RedrawWindow(handle, nullptr, nullptr, RDW_INVALIDATE | RDW_FRAME);
+	}
+	return result;
+}
+
+void PaintMenuBottomLine(HWND handle)
+{
+	RECT client{};
+	RECT window{};
+	if (!GetClientRect(handle, &client) || !GetWindowRect(handle, &window)) {
+		return;
+	}
+
+	MapWindowPoints(handle, nullptr, reinterpret_cast<POINT*>(&client), 2);
+	OffsetRect(&client, -window.left, -window.top);
+	RECT line{client.left, client.top - 1, client.right, client.top};
+	auto const dc = GetWindowDC(handle);
+	if (!dc) {
+		return;
+	}
+	auto const brush = CreateSolidBrush(ToColorRef(GetInterfaceColour(interface_colour::border)));
+	FillRect(dc, &line, brush);
+	DeleteObject(brush);
+	ReleaseDC(handle, dc);
+}
+
+LRESULT CALLBACK ModernMenuProc(HWND handle, UINT message, WPARAM wParam, LPARAM lParam,
+	UINT_PTR subclassId, DWORD_PTR)
+{
+	if (message == WM_NCDESTROY) {
+		RemoveWindowSubclass(handle, ModernMenuProc, subclassId);
+		return DefSubclassProc(handle, message, wParam, lParam);
+	}
+
+	if (IsDarkInterface() && message == wmUahDrawMenu) {
+		auto const menu = reinterpret_cast<UahMenu const*>(lParam);
+		MENUBARINFO info{};
+		info.cbSize = sizeof(info);
+		RECT window{};
+		if (menu && menu->dc && GetMenuBarInfo(handle, OBJID_MENU, 0, &info) &&
+			GetWindowRect(handle, &window))
+		{
+			RECT rect = info.rcBar;
+			OffsetRect(&rect, -window.left, -window.top);
+			auto const brush = CreateSolidBrush(
+				ToColorRef(GetInterfaceColour(interface_colour::panel)));
+			FillRect(menu->dc, &rect, brush);
+			DeleteObject(brush);
+			return 1;
+		}
+	}
+	else if (IsDarkInterface() && message == wmUahDrawMenuItem) {
+		auto const item = reinterpret_cast<UahDrawMenuItem const*>(lParam);
+		if (item && item->menu.dc) {
+			wchar_t label[256]{};
+			GetMenuStringW(item->menu.menu, item->item.position, label,
+				static_cast<int>(std::size(label)), MF_BYPOSITION);
+
+			bool const highlighted = (item->draw.itemState &
+				(ODS_HOTLIGHT | ODS_SELECTED)) != 0;
+			auto const background = GetInterfaceColour(highlighted ?
+				interface_colour::surface_strong : interface_colour::panel);
+			auto const text = GetInterfaceColour(
+				item->draw.itemState & (ODS_DISABLED | ODS_GRAYED) ?
+					interface_colour::muted : interface_colour::text);
+			auto const brush = CreateSolidBrush(ToColorRef(background));
+			FillRect(item->menu.dc, &item->draw.rcItem, brush);
+			DeleteObject(brush);
+
+			auto const oldMode = SetBkMode(item->menu.dc, TRANSPARENT);
+			auto const oldColour = SetTextColor(item->menu.dc, ToColorRef(text));
+			UINT format = DT_CENTER | DT_SINGLELINE | DT_VCENTER;
+			if (item->draw.itemState & ODS_NOACCEL) {
+				format |= DT_HIDEPREFIX;
+			}
+			RECT textRect = item->draw.rcItem;
+			DrawTextW(item->menu.dc, label, -1, &textRect, format);
+			SetTextColor(item->menu.dc, oldColour);
+			SetBkMode(item->menu.dc, oldMode);
+			return 1;
+		}
+	}
+
+	auto const result = DefSubclassProc(handle, message, wParam, lParam);
+	if (IsDarkInterface() && (message == WM_NCPAINT || message == WM_NCACTIVATE)) {
+		PaintMenuBottomLine(handle);
+	}
+	return result;
+}
+
 void ApplyNativeWindowAppearance(wxWindow& window, bool dark)
 {
 	auto const handle = reinterpret_cast<HWND>(window.GetHandle());
@@ -261,6 +425,11 @@ void ApplyNativeWindowAppearance(wxWindow& window, bool dark)
 	bool const isList = wcscmp(className, WC_LISTVIEWW) == 0;
 	bool const isHeader = wcscmp(className, WC_HEADERW) == 0;
 	bool const isStatusBar = wcscmp(className, STATUSCLASSNAMEW) == 0;
+	auto const nativeStyle = GetWindowLongPtrW(handle, GWL_STYLE);
+	auto const nativeExtendedStyle = GetWindowLongPtrW(handle, GWL_EXSTYLE);
+	bool const needsModernFrame = !window.IsTopLevel() && !isHeader && !isStatusBar &&
+		((nativeStyle & WS_BORDER) ||
+			(nativeExtendedStyle & (WS_EX_CLIENTEDGE | WS_EX_STATICEDGE)));
 	auto const setWindowTheme = GetFunction<SetWindowThemeFunction>(themeLibrary, "SetWindowTheme");
 	if (setWindowTheme) {
 		if (isTree || isList || wcscmp(className, L"ScrollBar") == 0) {
@@ -277,6 +446,10 @@ void ApplyNativeWindowAppearance(wxWindow& window, bool dark)
 	else if (isStatusBar) {
 		SetWindowSubclass(handle, ModernStatusProc, modernStatusSubclassId, 0);
 		InvalidateRect(handle, nullptr, TRUE);
+	}
+	if (needsModernFrame) {
+		SetWindowSubclass(handle, ModernFrameProc, modernFrameSubclassId, 0);
+		RedrawWindow(handle, nullptr, nullptr, RDW_INVALIDATE | RDW_FRAME);
 	}
 
 	auto const inputColour = GetInterfaceColour(interface_colour::input);
@@ -307,6 +480,8 @@ void ApplyNativeWindowAppearance(wxWindow& window, bool dark)
 	}
 
 	if (window.IsTopLevel()) {
+		SetWindowSubclass(handle, ModernMenuProc, modernMenuSubclassId, 0);
+		DrawMenuBar(handle);
 		auto const dwmLibrary = LoadLibraryW(L"dwmapi.dll");
 		if (auto const setAttribute = GetFunction<DwmSetWindowAttributeFunction>(dwmLibrary, "DwmSetWindowAttribute")) {
 			BOOL const enabled = dark ? TRUE : FALSE;
@@ -393,6 +568,8 @@ wxColour CInterfaceAppearance::GetColour(interface_colour role) const
 			return wxColour(102, 101, 122);
 		case interface_colour::accent:
 			return wxColour(105, 65, 198);
+		case interface_colour::accent_hover:
+			return wxColour(123, 85, 209);
 		case interface_colour::accent_text:
 		default:
 			return wxColour(255, 255, 255);
@@ -414,6 +591,8 @@ wxColour CInterfaceAppearance::GetColour(interface_colour role) const
 		return wxColour(185, 187, 209);
 	case interface_colour::accent:
 		return wxColour(157, 114, 239);
+	case interface_colour::accent_hover:
+		return wxColour(185, 147, 255);
 	case interface_colour::accent_text:
 		return wxColour(11, 13, 32);
 	case interface_colour::panel:
@@ -450,11 +629,7 @@ void CInterfaceAppearance::Apply(wxWindow& window)
 		backgroundRole = interface_colour::border;
 	}
 
-	if (window.GetName() == L"ninja-accent-button") {
-		backgroundRole = interface_colour::accent;
-		foregroundRole = interface_colour::accent_text;
-	}
-	else if (window.GetName() == L"ninja-muted-label") {
+	if (window.GetName() == L"ninja-muted-label") {
 		foregroundRole = interface_colour::muted;
 	}
 
@@ -473,6 +648,19 @@ void CInterfaceAppearance::ApplyRecursively(wxWindow& window)
 	for (auto const child : window.GetChildren()) {
 		if (child) {
 			ApplyRecursively(*child);
+		}
+	}
+}
+
+void CInterfaceAppearance::SetAppearance(interface_appearance appearance)
+{
+	configured_ = appearance;
+	dark_ = configured_ == interface_appearance::dark ||
+		(configured_ == interface_appearance::automatic && wxSystemSettings::GetAppearance().IsDark());
+	ConfigureNativeAppearance();
+	for (auto const window : wxTopLevelWindows) {
+		if (window) {
+			ApplyRecursively(*window);
 		}
 	}
 }
@@ -536,6 +724,13 @@ void ApplyInterfaceAppearance(wxWindow& window)
 {
 	if (active_appearance) {
 		active_appearance->Apply(window);
+	}
+}
+
+void SetInterfaceAppearance(interface_appearance appearance)
+{
+	if (active_appearance) {
+		active_appearance->SetAppearance(appearance);
 	}
 }
 

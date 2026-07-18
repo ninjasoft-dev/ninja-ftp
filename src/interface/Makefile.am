@@ -147,6 +147,7 @@ noinst_HEADERS = \
 		asyncrequestqueue.h \
 		aui_notebook_ex.h \
 		bookmarks_dialog.h \
+		branding.h \
 		buildinfo.h \
 		chmoddialog.h \
 		clearprivatedata.h \

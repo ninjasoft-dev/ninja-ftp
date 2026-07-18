@@ -6,7 +6,7 @@
 1 24 "windows_manifest.xml"
 #endif
 
-appicon ICON "FileZilla.ico"
+appicon ICON "NinjaTransfer.ico"
 
 //#ifdef HAS_VERSIONRC
 #include "version.rc"

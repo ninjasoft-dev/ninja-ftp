@@ -568,8 +568,8 @@ am__can_run_installinfo = \
 DATA = $(noinst_DATA)
 am__noinst_HEADERS_DIST = aboutdialog.h asksavepassworddialog.h \
 	asyncrequestqueue.h aui_notebook_ex.h bookmarks_dialog.h \
-	buildinfo.h chmoddialog.h clearprivatedata.h cmdline.h \
-	commandqueue.h conditionaldialog.h context_control.h \
+	branding.h buildinfo.h chmoddialog.h clearprivatedata.h \
+	cmdline.h commandqueue.h conditionaldialog.h context_control.h \
 	customheightlistctrl.h defaultfileexistsdlg.h dialogex.h \
 	dndobjects.h dragdropmanager.h dropsource.h drop_target_ex.h \
 	edithandler.h encoding_converter.h export.h fileexistsdlg.h \
@@ -928,8 +928,8 @@ filezilla_SOURCES = aboutdialog.cpp asksavepassworddialog.cpp \
 	$(am__append_4) $(am__append_6) $(am__append_14)
 noinst_HEADERS = aboutdialog.h asksavepassworddialog.h \
 	asyncrequestqueue.h aui_notebook_ex.h bookmarks_dialog.h \
-	buildinfo.h chmoddialog.h clearprivatedata.h cmdline.h \
-	commandqueue.h conditionaldialog.h context_control.h \
+	branding.h buildinfo.h chmoddialog.h clearprivatedata.h \
+	cmdline.h commandqueue.h conditionaldialog.h context_control.h \
 	customheightlistctrl.h defaultfileexistsdlg.h dialogex.h \
 	dndobjects.h dragdropmanager.h dropsource.h drop_target_ex.h \
 	edithandler.h encoding_converter.h export.h fileexistsdlg.h \

@@ -123,59 +123,72 @@ public:
 
 	virtual void DrawTab(wxDC &dc, wxWindow *wnd, const wxAuiNotebookPage &page, const wxRect &rect, int close_button_state, wxRect *out_tab_rect, wxRect *out_button_rect, int *x_extent) override
 	{
+		wxRect tabRect;
+		wxRect buttonRect;
+		auto tabOutput = out_tab_rect ? out_tab_rect : &tabRect;
+		auto buttonOutput = out_button_rect ? out_button_rect : &buttonRect;
+		TabArtBase::DrawTab(dc, wnd, page, rect, close_button_state, tabOutput, buttonOutput, x_extent);
+
+		// A implementação genérica usa relevos clássicos; cobrimos a área mantendo sua geometria e hit testing.
+		dc.SetPen(*wxTRANSPARENT_PEN);
+		dc.SetBrush(wxBrush(GetInterfaceColour(interface_colour::panel)));
+		dc.DrawRectangle(*tabOutput);
+
+		wxColour fill = GetInterfaceColour(
+			page.active ? interface_colour::surface_strong : interface_colour::panel);
 		wxColour const tint = m_pNotebook->GetTabColour(page.window);
-
 		if (tint.IsOk()) {
-
-#if !defined(__WXGTK__) || !defined(wxHAS_NATIVE_TABART)
-			wxColour const baseOrig = m_baseColour;
-			wxColour const activeOrig = m_activeColour;
-
-
-			wxColour const base(
-				wxColour::AlphaBlend(tint.Red(),   baseOrig.Red(),   tint.Alpha() / 255.0f),
-				wxColour::AlphaBlend(tint.Green(), baseOrig.Green(), tint.Alpha() / 255.0f),
-				wxColour::AlphaBlend(tint.Blue(),  baseOrig.Blue(),  tint.Alpha() / 255.0f));
-
-			wxColour const active(
-				wxColour::AlphaBlend(tint.Red(),   activeOrig.Red(),   tint.Alpha() / 255.0f),
-				wxColour::AlphaBlend(tint.Green(), activeOrig.Green(), tint.Alpha() / 255.0f),
-				wxColour::AlphaBlend(tint.Blue(),  activeOrig.Blue(),  tint.Alpha() / 255.0f));
-
-			m_baseColour = base;
-			m_activeColour = active;
-
-			TabArtBase::DrawTab(dc, wnd, page, rect, close_button_state, out_tab_rect, out_button_rect, x_extent);
-
-			m_baseColour = baseOrig;
-			m_activeColour = activeOrig;
-#else
-			wxRect tab_rect;
-			if (!out_tab_rect) {
-				out_tab_rect = &tab_rect;
-			}
-
-			TabArtBase::DrawTab(dc, wnd, page, rect, close_button_state, out_tab_rect, out_button_rect, x_extent);
-
-			wxMemoryDC *mdc = dynamic_cast<wxMemoryDC*>(&dc);
-			if (mdc) {
-				wxGraphicsContext *gc = wxGraphicsContext::Create(*mdc);
-				if (gc) {
-					gc->SetBrush(wxBrush(tint));
-					gc->DrawRectangle(out_tab_rect->x, out_tab_rect->y, out_tab_rect->width, out_tab_rect->height);
-					delete gc;
-				}
-			}
-#endif
-		}
-		else {
-			TabArtBase::DrawTab(dc, wnd, page, rect, close_button_state, out_tab_rect, out_button_rect, x_extent);
+			float const alpha = tint.Alpha() / 255.0f;
+			fill = wxColour(
+				wxColour::AlphaBlend(tint.Red(), fill.Red(), alpha),
+				wxColour::AlphaBlend(tint.Green(), fill.Green(), alpha),
+				wxColour::AlphaBlend(tint.Blue(), fill.Blue(), alpha));
 		}
 
-		if (page.active && out_tab_rect) {
+		wxRect card = *tabOutput;
+		card.Deflate(1, 1);
+		dc.SetPen(wxPen(GetInterfaceColour(interface_colour::border)));
+		dc.SetBrush(wxBrush(fill));
+		dc.DrawRoundedRectangle(card, wnd->FromDIP(5));
+
+		if (page.active) {
 			dc.SetPen(wxPen(GetInterfaceColour(interface_colour::accent), wnd->FromDIP(2)));
-			dc.DrawLine(out_tab_rect->GetLeft() + wnd->FromDIP(5), out_tab_rect->GetTop() + 1,
-				out_tab_rect->GetRight() - wnd->FromDIP(5), out_tab_rect->GetTop() + 1);
+			dc.DrawLine(card.GetLeft() + wnd->FromDIP(5), card.GetTop() + 1,
+				card.GetRight() - wnd->FromDIP(5), card.GetTop() + 1);
+		}
+
+		int contentLeft = card.GetLeft() + wnd->FromDIP(10);
+		if (page.bitmap.IsOk()) {
+			auto const bitmap = page.bitmap.GetBitmapFor(wnd);
+			int const bitmapY = card.GetTop() + (card.GetHeight() - bitmap.GetHeight()) / 2;
+			dc.DrawBitmap(bitmap, contentLeft, bitmapY, true);
+			contentLeft += bitmap.GetWidth() + wnd->FromDIP(6);
+		}
+
+		wxRect textRect = card;
+		textRect.SetLeft(contentLeft);
+		textRect.SetRight(card.GetRight() - wnd->FromDIP(9));
+		if (!(close_button_state & wxAUI_BUTTON_STATE_HIDDEN) && !buttonOutput->IsEmpty()) {
+			textRect.SetRight(buttonOutput->GetLeft() - wnd->FromDIP(4));
+		}
+		dc.SetFont(page.active ? m_selectedFont : m_normalFont);
+		dc.SetTextForeground(GetInterfaceColour(
+			page.active ? interface_colour::text : interface_colour::muted));
+		dc.DrawLabel(page.caption, textRect, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL);
+
+		if (!(close_button_state & wxAUI_BUTTON_STATE_HIDDEN) && !buttonOutput->IsEmpty()) {
+			wxRect closeRect = *buttonOutput;
+			closeRect.Deflate(wnd->FromDIP(3));
+			if (close_button_state & wxAUI_BUTTON_STATE_HOVER) {
+				dc.SetPen(*wxTRANSPARENT_PEN);
+				dc.SetBrush(wxBrush(GetInterfaceColour(interface_colour::accent_hover)));
+				dc.DrawRoundedRectangle(closeRect, wnd->FromDIP(3));
+			}
+			dc.SetPen(wxPen(GetInterfaceColour(interface_colour::muted), wnd->FromDIP(2)));
+			dc.DrawLine(closeRect.GetLeft() + 2, closeRect.GetTop() + 2,
+				closeRect.GetRight() - 2, closeRect.GetBottom() - 2);
+			dc.DrawLine(closeRect.GetRight() - 2, closeRect.GetTop() + 2,
+				closeRect.GetLeft() + 2, closeRect.GetBottom() - 2);
 		}
 	}
 

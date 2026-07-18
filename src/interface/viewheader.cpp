@@ -216,10 +216,19 @@ void CViewHeader::OnComboPaint(wxPaintEvent& event)
 		}
 	}
 
-	// Cover up dark 3D shadow.
+	// Cobre a moldura 3D que o Windows insiste em manter no combo.
 	wxRect rect = box->GetClientRect();
 	dc.SetPen(wxPen(GetInterfaceColour(interface_colour::border)));
-	dc.DrawRectangle(rect);
+	for (int inset = 0; inset != FromDIP(3); ++inset) {
+		int const left = rect.GetLeft() + inset;
+		int const right = rect.GetRight() - inset;
+		int const top = rect.GetTop() + inset;
+		int const bottom = rect.GetBottom() - inset;
+		dc.DrawLine(left, top, right, top);
+		dc.DrawLine(left, bottom, right, bottom);
+		dc.DrawLine(left, top, left, bottom);
+		dc.DrawLine(right, top, right, bottom);
+	}
 
 }
 
