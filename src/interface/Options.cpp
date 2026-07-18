@@ -54,7 +54,7 @@ static unsigned int register_interface_options()
 		{ "Greeting resources", L"", option_flags::normal },
 		{ "Onetime Dialogs", L"", option_flags::normal },
 		{ "Show Tree Local", true, option_flags::normal },
-		{ "Show Tree Remote", false, option_flags::normal },
+		{ "Show Tree Remote", true, option_flags::normal },
 		{ "File Pane Layout", 0, option_flags::normal, 0, 3 },
 		{ "File Pane Swap", false, option_flags::normal },
 		{ "Filelist directory sort", 0, option_flags::normal, 0, 2 },

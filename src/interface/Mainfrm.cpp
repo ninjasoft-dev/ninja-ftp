@@ -84,25 +84,51 @@ wxDEFINE_EVENT(fzEVT_TASKBAR_CLICK_DELAYED, wxCommandEvent);
 static int tab_hotkey_ids[10];
 
 namespace {
-constexpr int compact_layout_profile_version = 1;
+constexpr int compact_layout_profile_version = 2;
+
+int GetHorizontalTreeSashPosition(CSplitterWindowEx& splitter)
+{
+	int const availableHeight = splitter.GetClientSize().GetHeight();
+	int const sashSize = splitter.GetSashSize();
+	int const minimumHeight = wxMin(100, wxMax(1, (availableHeight - sashSize) / 2));
+	int const maximumPosition = availableHeight - minimumHeight - sashSize;
+
+	if (maximumPosition <= minimumHeight) {
+		return wxMax(1, availableHeight / 2);
+	}
+
+	int position = splitter.GetSashPosition();
+	if (position < minimumHeight || position > maximumPosition) {
+		// Uma posição salva fora da área útil faria a árvore reaparecer comprimida.
+		position = static_cast<int>(availableHeight * 0.4);
+		position = wxMin(wxMax(position, minimumHeight), maximumPosition);
+	}
+
+	return position;
+}
 
 void ApplyCompactLayoutProfile(COptions& options)
 {
-	if (options.get_int(OPTION_INTERFACE_LAYOUT_PROFILE_VERSION) >= compact_layout_profile_version) {
+	int const currentVersion = options.get_int(OPTION_INTERFACE_LAYOUT_PROFILE_VERSION);
+	if (currentVersion >= compact_layout_profile_version) {
 		return;
 	}
 
-	// A migração ocorre uma única vez; alterações posteriores do usuário são preservadas.
-	options.set(OPTION_SHOW_QUICKCONNECT, true);
-	options.set(OPTION_TOOLBAR_HIDDEN, false);
-	options.set(OPTION_SHOW_MESSAGELOG, true);
-	options.set(OPTION_MESSAGELOG_POSITION, 2);
-	options.set(OPTION_SHOW_QUEUE, true);
-	options.set(OPTION_SHOW_TREE_LOCAL, true);
-	options.set(OPTION_SHOW_TREE_REMOTE, false);
-	options.set(OPTION_FILEPANE_LAYOUT, 0);
-	options.set(OPTION_FILEPANE_SWAP, false);
-	options.set(OPTION_MAINWINDOW_SPLITTER_POSITION, L"");
+	if (currentVersion < 1) {
+		// A migração inicial ocorre uma única vez; alterações posteriores são preservadas.
+		options.set(OPTION_SHOW_QUICKCONNECT, true);
+		options.set(OPTION_TOOLBAR_HIDDEN, false);
+		options.set(OPTION_SHOW_MESSAGELOG, true);
+		options.set(OPTION_MESSAGELOG_POSITION, 2);
+		options.set(OPTION_SHOW_QUEUE, true);
+		options.set(OPTION_SHOW_TREE_LOCAL, true);
+		options.set(OPTION_FILEPANE_LAYOUT, 0);
+		options.set(OPTION_FILEPANE_SWAP, false);
+		options.set(OPTION_MAINWINDOW_SPLITTER_POSITION, L"");
+	}
+
+	// A versão 2 corrige somente a árvore remota, sem reverter outros ajustes visuais.
+	options.set(OPTION_SHOW_TREE_REMOTE, true);
 	options.set(OPTION_INTERFACE_LAYOUT_PROFILE_VERSION, compact_layout_profile_version);
 }
 }
@@ -1738,7 +1764,8 @@ void CMainFrame::ShowDirectoryTree(bool local, bool show)
 				splitter->SplitVertically(tree, list);
 			}
 			else {
-				splitter->SplitHorizontally(tree, list);
+				int const sashPosition = GetHorizontalTreeSashPosition(*splitter);
+				splitter->SplitHorizontally(tree, list, sashPosition);
 			}
 		}
 		else if (!show && splitter->IsSplit()) {

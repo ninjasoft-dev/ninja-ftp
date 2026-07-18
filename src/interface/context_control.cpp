@@ -358,7 +358,7 @@ void CContextControl::CreateContextControls(CState& state)
 	else {
 		context_controls.pViewSplitter->SetRelativeSashPosition(0.5);
 		context_controls.pLocalSplitter->SetRelativeSashPosition(0.4);
-		context_controls.pLocalSplitter->SetRelativeSashPosition(0.4);
+		context_controls.pRemoteSplitter->SetRelativeSashPosition(0.4);
 	}
 
 	m_mainFrame.ConnectNavigationHandler(context_controls.pLocalListView);
