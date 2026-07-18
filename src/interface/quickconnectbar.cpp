@@ -8,6 +8,7 @@
 #include "Mainfrm.h"
 #include "asksavepassworddialog.h"
 #include "filezillaapp.h"
+#include "graphics.h"
 #include "textctrlex.h"
 #include "themeprovider.h"
 
@@ -35,33 +36,51 @@ CQuickconnectBar::CQuickconnectBar(CMainFrame & parent)
 
 	DialogLayout layout(&parent);
 	auto mainSizer = layout.createFlex(0, 1);
-	sizer->Add(mainSizer, wxSizerFlags().Border(wxALL, ConvertDialogToPixels(wxPoint(2, 0)).x));
+	int const padding = FromDIP(8);
+	sizer->Add(mainSizer, wxSizerFlags().Border(wxALL, padding));
 
-	mainSizer->Add(new wxStaticText(this, nullID, _("&Host:")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
+	auto addLabel = [this, mainSizer](wxString const& text) {
+		auto label = new wxStaticText(this, nullID, text);
+		label->SetName(L"ninja-muted-label");
+		mainSizer->Add(label, wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
+	};
+	auto prepareInput = [this](wxTextCtrl* input) {
+		auto size = input->GetMinSize();
+		size.SetHeight(wxMax(input->GetBestSize().GetHeight(), FromDIP(30)));
+		input->SetMinSize(size);
+	};
+
+	addLabel(_("&Host:"));
 	m_pHost = new wxTextCtrlEx(this, -1, wxString(), wxDefaultPosition, ConvertDialogToPixels(wxSize(63, -1)), wxTE_PROCESS_ENTER);
 	m_pHost->SetToolTip(_("Enter the address of the server. To specify the server protocol, prepend the host with the protocol identifier. If no protocol is specified, the default protocol (ftp://) will be used. You can also enter complete URLs in the form protocol://user:pass@host:port here, the values in the other fields will be overwritten then.\n\nSupported protocols are:\n- ftp:// for normal FTP with optional encryption\n- sftp:// for SSH file transfer protocol\n- ftps:// for FTP over TLS (implicit)\n- ftpes:// for FTP over TLS (explicit)"));
 	m_pHost->SetMaxLength(1000);
+	prepareInput(m_pHost);
 	mainSizer->Add(m_pHost, wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL).Border(wxRIGHT, 5));
 
-	mainSizer->Add(new wxStaticText(this, nullID, _("&Username:")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
+	addLabel(_("&Username:"));
 	m_pUser = new wxTextCtrlEx(this, -1, wxString(), wxDefaultPosition, layout.defTextCtrlSize, wxTE_PROCESS_ENTER);
 	m_pUser->SetMaxLength(1000);
+	prepareInput(m_pUser);
 	mainSizer->Add(m_pUser, wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL).Border(wxRIGHT, 5));
 
-	mainSizer->Add(new wxStaticText(this, nullID, _("Pass&word:")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
+	addLabel(_("Pass&word:"));
 	m_pPass = new wxTextCtrlEx(this, nullID, wxString(), wxDefaultPosition, layout.defTextCtrlSize, wxTE_PROCESS_ENTER|wxTE_PASSWORD);
 	m_pPass->SetMaxLength(1000);
+	prepareInput(m_pPass);
 	mainSizer->Add(m_pPass, wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL).Border(wxRIGHT, 5));
 
-	mainSizer->Add(new wxStaticText(this, nullID, _("&Port:")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
+	addLabel(_("&Port:"));
 	m_pPort = new wxTextCtrlEx(this, nullID, wxString(), wxDefaultPosition, ConvertDialogToPixels(wxSize(27, -1)), wxTE_PROCESS_ENTER);
 	m_pPort->SetToolTip(_("Enter the port on which the server listens. The default for FTP is 21, the default for SFTP is 22."));
 	m_pPort->SetMaxLength(5);
+	prepareInput(m_pPort);
 	mainSizer->Add(m_pPort, wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL).Border(wxRIGHT, 5));
 
 	auto connectSizer = new wxBoxSizer(wxHORIZONTAL);
 	mainSizer->Add(connectSizer, wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
 	auto connect = new wxButton(this, XRCID("ID_QUICKCONNECT_OK"), _("&Quickconnect"));
+	connect->SetName(L"ninja-accent-button");
+	connect->SetMinSize(wxSize(-1, FromDIP(30)));
 	connect->SetDefault();
 	connectSizer->Add(connect, wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
 
@@ -75,7 +94,10 @@ CQuickconnectBar::CQuickconnectBar(CMainFrame & parent)
 #else
 	wxSize dropdownSize(-1, -1);
 #endif
-	connectSizer->Add(new wxBitmapButton(this, XRCID("ID_QUICKCONNECT_DROPDOWN"), MakeBmpBundle(bmp), wxDefaultPosition, dropdownSize, wxBU_AUTODRAW | wxBU_EXACTFIT), flags);
+	auto dropdown = new wxBitmapButton(this, XRCID("ID_QUICKCONNECT_DROPDOWN"), MakeBmpBundle(bmp), wxDefaultPosition, dropdownSize, wxBU_AUTODRAW | wxBU_EXACTFIT);
+	dropdown->SetName(L"ninja-accent-button");
+	dropdown->SetMinSize(wxSize(dropdownSize.x, FromDIP(30)));
+	connectSizer->Add(dropdown, flags);
 
 #ifdef __WXMAC__
 	// Under OS X default buttons are toplevel window wide, where under Windows / GTK they stop at the parent panel.

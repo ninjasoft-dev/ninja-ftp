@@ -320,7 +320,7 @@ filezilla_CPPFLAGS += $(LIBSQLITE3_CFLAGS)
 filezilla_LDFLAGS += $(LIBSQLITE3_LIBS)
 
 if FZ_WINDOWS
-filezilla_LDFLAGS += -lnormaliz -lole32 -luuid -lnetapi32 -lmpr -lpowrprof -lws2_32 -lshlwapi
+filezilla_LDFLAGS += -lnormaliz -lole32 -luuid -lnetapi32 -lmpr -lpowrprof -lws2_32 -lshlwapi -lgdi32 -lcomctl32
 endif
 
 # GTK+ libs, empty if not using wxGTK
@@ -374,4 +374,3 @@ filezilla.h.gch: filezilla.h
 	then mv -f "$(DEPDIR)/filezilla.Tpo" "$(DEPDIR)/filezilla.Po"; else rm -f "$(DEPDIR)/filezilla.Tpo"; exit 1; fi
 
 endif
-

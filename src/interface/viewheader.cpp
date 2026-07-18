@@ -77,8 +77,12 @@ CViewHeader::CViewHeader(wxWindow* pParent, const wxString& label)
 	m_pComboBox = new CComboBoxEx(this);
 	m_pComboBox->SetMaxLength(20000);
 	m_pLabel = new wxStaticText(this, wxID_ANY, label, wxDefaultPosition, wxDefaultSize);
+	m_pLabel->SetName(L"ninja-muted-label");
+	auto labelFont = m_pLabel->GetFont();
+	labelFont.SetWeight(wxFONTWEIGHT_BOLD);
+	m_pLabel->SetFont(labelFont);
 	wxSize size = GetSize();
-	size.SetHeight(m_pComboBox->GetBestSize().GetHeight() + border_offset);
+	size.SetHeight(m_pComboBox->GetBestSize().GetHeight() + border_offset + FromDIP(6));
 
 	SetLabel(label);
 
@@ -91,7 +95,7 @@ CViewHeader::CViewHeader(wxWindow* pParent, const wxString& label)
 	m_bLeftMousePressed = false;
 #endif //__WXMSW__
 
-	SetBackgroundStyle(wxBG_STYLE_SYSTEM);
+	SetBackgroundStyle(wxBG_STYLE_PAINT);
 	m_pComboBox->SetBackgroundStyle(wxBG_STYLE_SYSTEM);
 	m_pLabel->SetBackgroundStyle(wxBG_STYLE_SYSTEM);
 
@@ -103,17 +107,17 @@ void CViewHeader::OnSize(wxSizeEvent&)
 	const wxRect client_rect = GetClientRect();
 
 	wxRect rect = client_rect;
-	rect.SetWidth(rect.GetWidth() - m_cbOffset + 2);
+	rect.SetWidth(rect.GetWidth() - m_cbOffset - FromDIP(6));
 	rect.SetX(m_cbOffset);
-	rect.Deflate(0, border_offset / 2);
+	rect.Deflate(0, border_offset / 2 + FromDIP(2));
 	rect.SetWidth(std::max(0, rect.GetWidth() - border_offset / 2));
 	rect.y += combo_offset;
 	if (m_pComboBox) {
 		m_pComboBox->SetSize(rect);
 	}
 
-	rect.SetX(5);
-	rect.SetWidth(m_cbOffset - 5);
+	rect.SetX(FromDIP(10));
+	rect.SetWidth(m_cbOffset - FromDIP(10));
 	rect.SetY((client_rect.GetHeight() - m_labelHeight) / 2 - 1);
 	rect.SetHeight(m_labelHeight);
 	if (m_pLabel) {
@@ -214,7 +218,7 @@ void CViewHeader::OnComboPaint(wxPaintEvent& event)
 
 	// Cover up dark 3D shadow.
 	wxRect rect = box->GetClientRect();
-	dc.SetPen(wxPen(wxSystemSettings::GetColour(wxSYS_COLOUR_3DDKSHADOW)));
+	dc.SetPen(wxPen(GetInterfaceColour(interface_colour::border)));
 	dc.DrawRectangle(rect);
 
 }
@@ -235,14 +239,13 @@ void CViewHeader::OnPaint(wxPaintEvent&)
 {
 	wxRect rect = GetClientRect();
 	wxPaintDC dc(this);
-	dc.SetPen(*wxBLACK_PEN);
-	dc.SetTextForeground(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
-
-#ifdef __WXMSW__
-	dc.DrawLine(rect.GetLeft(), rect.GetBottom(), m_cbOffset, rect.GetBottom());
-#else
+	dc.SetPen(*wxTRANSPARENT_PEN);
+	dc.SetBrush(wxBrush(GetInterfaceColour(interface_colour::panel)));
+	dc.DrawRectangle(rect);
+	dc.SetPen(wxPen(GetInterfaceColour(interface_colour::border)));
 	dc.DrawLine(rect.GetLeft(), rect.GetBottom(), rect.GetRight(), rect.GetBottom());
-#endif
+	dc.SetPen(wxPen(GetInterfaceColour(interface_colour::accent), FromDIP(3)));
+	dc.DrawLine(rect.GetLeft() + FromDIP(1), rect.GetTop(), rect.GetLeft() + FromDIP(1), rect.GetBottom());
 }
 
 void CViewHeader::SetLabel(const wxString& label)
@@ -250,7 +253,7 @@ void CViewHeader::SetLabel(const wxString& label)
 	m_pLabel->SetLabel(label);
 	int w;
 	GetTextExtent(label, &w, &m_labelHeight);
-	m_cbOffset = w + 10;
+	m_cbOffset = w + FromDIP(20);
 }
 
 void CViewHeader::Reparent(CViewHeader** pViewHeader, wxWindow* parent)

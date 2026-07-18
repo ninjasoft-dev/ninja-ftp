@@ -1,5 +1,6 @@
 #include "filezilla.h"
 #include "filelist_statusbar.h"
+#include "graphics.h"
 #include "Options.h"
 
 #include "../include/sizeformatting.h"
@@ -19,6 +20,7 @@ CFilelistStatusBar::CFilelistStatusBar(wxWindow* pParent, COptionsBase & options
 	m_offline_string = _("Not connected.");
 
 	UpdateText();
+	ApplyInterfaceAppearance(*this);
 
 #ifdef __WXMSW__
 	if (GetLayoutDirection() != wxLayout_RightToLeft) {

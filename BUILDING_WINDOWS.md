@@ -73,6 +73,9 @@ execute `pacman -Syu` novamente antes de instalar as dependências.
   habilitados.
 - Os modos automático, claro e escuro abrangem janelas, menus, campos, árvores,
   listas e diálogos criados durante a execução.
+- Os modos claro e escuro compartilham a identidade visual do Ninja Translator:
+  superfícies em camadas, bordas discretas e roxo como cor de ação. A organização
+  compacta em dois painéis continua priorizando a produtividade.
 - A verificação automática de atualização fica desativada no executável de
   desenvolvimento.
 - A extensão de menu do Explorer não é compilada. Ela exige também o toolchain

@@ -1,12 +1,15 @@
 #include "filezilla.h"
 #include "filezillaapp.h"
 #include "filter_manager.h"
+#include "graphics.h"
 #include "listingcomparison.h"
 #include "Mainfrm.h"
 #include "Options.h"
 #include "QueueView.h"
 #include "themeprovider.h"
 #include "toolbar.h"
+
+#include <wx/dcclient.h>
 
 namespace {
 	constexpr int toolbarStyle = wxTB_FLAT | wxTB_HORIZONTAL | wxTB_NODIVIDER;
@@ -22,6 +25,7 @@ CToolBar::CToolBar(CMainFrame& mainFrame, COptions& options)
 	, mainFrame_(mainFrame)
 	, options_(options)
 {
+	SetBackgroundStyle(wxBG_STYLE_PAINT);
 #ifdef __WXMAC__
 	fix_toolbar_style(mainFrame_);
 
@@ -48,15 +52,27 @@ CToolBar::CToolBar(CMainFrame& mainFrame, COptions& options)
 		localToolBar_->GetBestSize().GetHeight(),
 		remoteToolBar_->GetBestSize().GetHeight()
 	);
-	SetMinSize(wxSize(-1, toolbarHeight));
-	SetSize(wxSize(mainFrame.GetClientSize().GetWidth(), toolbarHeight));
+	int const verticalPadding = FromDIP(4);
+	SetMinSize(wxSize(-1, toolbarHeight + 2 * verticalPadding));
+	SetSize(wxSize(mainFrame.GetClientSize().GetWidth(), toolbarHeight + 2 * verticalPadding));
 
-	Bind(wxEVT_SIZE, [this](wxSizeEvent& event) {
+	Bind(wxEVT_SIZE, [this, verticalPadding](wxSizeEvent& event) {
 		auto const size = GetClientSize();
 		int const localWidth = size.GetWidth() / 2;
-		localToolBar_->SetSize(0, 0, localWidth, size.GetHeight());
-		remoteToolBar_->SetSize(localWidth, 0, size.GetWidth() - localWidth, size.GetHeight());
+		int const toolbarAreaHeight = wxMax(0, size.GetHeight() - 2 * verticalPadding);
+		localToolBar_->SetSize(0, verticalPadding, localWidth, toolbarAreaHeight);
+		remoteToolBar_->SetSize(localWidth, verticalPadding, size.GetWidth() - localWidth, toolbarAreaHeight);
 		event.Skip();
+	});
+	Bind(wxEVT_PAINT, [this](wxPaintEvent&) {
+		wxPaintDC dc(this);
+		auto const rect = GetClientRect();
+		dc.SetPen(*wxTRANSPARENT_PEN);
+		dc.SetBrush(wxBrush(GetInterfaceColour(interface_colour::panel)));
+		dc.DrawRectangle(rect);
+		dc.SetPen(wxPen(GetInterfaceColour(interface_colour::border)));
+		dc.DrawLine(rect.GetWidth() / 2, rect.GetTop(), rect.GetWidth() / 2, rect.GetBottom());
+		dc.DrawLine(rect.GetLeft(), rect.GetBottom(), rect.GetRight(), rect.GetBottom());
 	});
 
 	CContextManager::Get()->RegisterHandler(this, STATECHANGE_REMOTE_IDLE, true);

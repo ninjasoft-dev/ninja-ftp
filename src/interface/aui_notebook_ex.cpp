@@ -1,5 +1,6 @@
 #include "filezilla.h"
 #include "aui_notebook_ex.h"
+#include "graphics.h"
 #include "themeprovider.h"
 
 #include "filezillaapp.h"
@@ -9,12 +10,6 @@
 #include <wx/graphics.h>
 
 #include <memory>
-
-#ifdef __WXMSW__
-#define TABCOLOUR wxSYS_COLOUR_3DFACE
-#else
-#define TABCOLOUR wxSYS_COLOUR_WINDOWFRAME
-#endif
 
 struct wxAuiTabArtExData
 {
@@ -88,6 +83,7 @@ public:
 #if USE_PREPARED_ICONS
 		PrepareIcons();
 #endif
+		ApplyPalette();
 	}
 
 	virtual wxAuiTabArt* Clone() override
@@ -152,7 +148,7 @@ public:
 			TabArtBase::DrawTab(dc, wnd, page, rect, close_button_state, out_tab_rect, out_button_rect, x_extent);
 
 			m_baseColour = baseOrig;
-			m_activeColour = baseOrig;
+			m_activeColour = activeOrig;
 #else
 			wxRect tab_rect;
 			if (!out_tab_rect) {
@@ -175,17 +171,32 @@ public:
 		else {
 			TabArtBase::DrawTab(dc, wnd, page, rect, close_button_state, out_tab_rect, out_button_rect, x_extent);
 		}
+
+		if (page.active && out_tab_rect) {
+			dc.SetPen(wxPen(GetInterfaceColour(interface_colour::accent), wnd->FromDIP(2)));
+			dc.DrawLine(out_tab_rect->GetLeft() + wnd->FromDIP(5), out_tab_rect->GetTop() + 1,
+				out_tab_rect->GetRight() - wnd->FromDIP(5), out_tab_rect->GetTop() + 1);
+		}
+	}
+
+	void DrawBackground(wxDC& dc, wxWindow*, const wxRect& rect) override
+	{
+		dc.SetPen(wxPen(GetInterfaceColour(interface_colour::border)));
+		dc.SetBrush(wxBrush(GetInterfaceColour(interface_colour::panel)));
+		dc.DrawRectangle(rect);
 	}
 
 protected:
-
-#if USE_PREPARED_ICONS
 	virtual void UpdateColoursFromSystem() override
 	{
 		TabArtBase::UpdateColoursFromSystem();
+		ApplyPalette();
+#if USE_PREPARED_ICONS
 		PrepareIcons();
+#endif
 	}
 
+#if USE_PREPARED_ICONS
 	void PrepareIcons()
 	{
 		wxSize canvas(CThemeProvider::Get()->GetIconSize(iconSizeSmall));
@@ -206,6 +217,12 @@ protected:
 		PrepareTabIcon(m_activeRightBmp, m_disabledRightBmp, L"ART_SORT_DOWN_DARK", size, canvas, offset, mirror, 192);
 	}
 #endif
+
+	void ApplyPalette()
+	{
+		SetColour(GetInterfaceColour(interface_colour::panel));
+		SetActiveColour(GetInterfaceColour(interface_colour::surface_strong));
+	}
 
 	wxAuiNotebookEx* m_pNotebook;
 

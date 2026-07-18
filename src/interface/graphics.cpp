@@ -3,9 +3,14 @@
 #include "graphics.h"
 
 #include <wx/app.h>
+#include <wx/bmpbuttn.h>
+#include <wx/button.h>
 #include <wx/listbox.h>
 #include <wx/combobox.h>
 #include <wx/listctrl.h>
+#include <wx/splitter.h>
+#include <wx/statline.h>
+#include <wx/statusbr.h>
 #include <wx/textctrl.h>
 #include <wx/treectrl.h>
 #include <wx/weakref.h>
@@ -35,6 +40,9 @@ using FlushMenuThemesFunction = void (WINAPI*)();
 using SetWindowThemeFunction = HRESULT (WINAPI*)(HWND, LPCWSTR, LPCWSTR);
 using DwmSetWindowAttributeFunction = HRESULT (WINAPI*)(HWND, DWORD, LPCVOID, DWORD);
 
+constexpr UINT_PTR modernHeaderSubclassId = 0x4e534844;
+constexpr UINT_PTR modernStatusSubclassId = 0x4e535354;
+
 template<typename Function>
 Function GetFunction(HMODULE module, char const* name)
 {
@@ -47,6 +55,193 @@ Function GetFunction(HMODULE module, WORD ordinal)
 	return module ? reinterpret_cast<Function>(GetProcAddress(module, MAKEINTRESOURCEA(ordinal))) : nullptr;
 }
 
+COLORREF ToColorRef(wxColour const& colour)
+{
+	return RGB(colour.Red(), colour.Green(), colour.Blue());
+}
+
+void FillControlBackground(HDC dc, RECT const& rect, interface_colour role)
+{
+	auto const brush = CreateSolidBrush(ToColorRef(GetInterfaceColour(role)));
+	FillRect(dc, &rect, brush);
+	DeleteObject(brush);
+}
+
+void DrawHeaderSortIndicator(HDC dc, RECT const& rect, bool ascending)
+{
+	int const centreX = rect.right - 11;
+	int const centreY = (rect.top + rect.bottom) / 2;
+	POINT points[3]{};
+	if (ascending) {
+		points[0] = { centreX - 4, centreY + 2 };
+		points[1] = { centreX + 4, centreY + 2 };
+		points[2] = { centreX, centreY - 2 };
+	}
+	else {
+		points[0] = { centreX - 4, centreY - 2 };
+		points[1] = { centreX + 4, centreY - 2 };
+		points[2] = { centreX, centreY + 2 };
+	}
+	auto const brush = CreateSolidBrush(ToColorRef(GetInterfaceColour(interface_colour::accent)));
+	auto const oldBrush = SelectObject(dc, brush);
+	Polygon(dc, points, 3);
+	SelectObject(dc, oldBrush);
+	DeleteObject(brush);
+}
+
+void PaintModernHeader(HWND handle, HDC suppliedDc = nullptr)
+{
+	PAINTSTRUCT paint{};
+	HDC dc = suppliedDc ? suppliedDc : BeginPaint(handle, &paint);
+	if (!dc) {
+		return;
+	}
+
+	RECT client{};
+	GetClientRect(handle, &client);
+	FillControlBackground(dc, client, interface_colour::surface_strong);
+	SetBkMode(dc, TRANSPARENT);
+	SetTextColor(dc, ToColorRef(GetInterfaceColour(interface_colour::muted)));
+
+	auto const font = reinterpret_cast<HFONT>(SendMessageW(handle, WM_GETFONT, 0, 0));
+	auto const oldFont = font ? SelectObject(dc, font) : nullptr;
+	auto const borderPen = CreatePen(PS_SOLID, 1, ToColorRef(GetInterfaceColour(interface_colour::border)));
+	auto const oldPen = SelectObject(dc, borderPen);
+	int const count = Header_GetItemCount(handle);
+	for (int index = 0; index < count; ++index) {
+		RECT itemRect{};
+		if (!Header_GetItemRect(handle, index, &itemRect)) {
+			continue;
+		}
+
+		wchar_t label[512]{};
+		HDITEMW item{};
+		item.mask = HDI_TEXT | HDI_FORMAT;
+		item.pszText = label;
+		item.cchTextMax = static_cast<int>(std::size(label));
+		Header_GetItem(handle, index, &item);
+
+		RECT textRect = itemRect;
+		textRect.left += 8;
+		textRect.right -= 8;
+		bool const sorted = (item.fmt & (HDF_SORTUP | HDF_SORTDOWN)) != 0;
+		if (sorted) {
+			textRect.right -= 13;
+		}
+
+		UINT format = DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX;
+		switch (item.fmt & HDF_JUSTIFYMASK) {
+		case HDF_CENTER:
+			format |= DT_CENTER;
+			break;
+		case HDF_RIGHT:
+			format |= DT_RIGHT;
+			break;
+		default:
+			format |= DT_LEFT;
+			break;
+		}
+		DrawTextW(dc, label, -1, &textRect, format);
+
+		MoveToEx(dc, itemRect.right - 1, itemRect.top + 4, nullptr);
+		LineTo(dc, itemRect.right - 1, itemRect.bottom - 4);
+
+		if (sorted) {
+			DrawHeaderSortIndicator(dc, itemRect, (item.fmt & HDF_SORTUP) != 0);
+		}
+	}
+
+	MoveToEx(dc, client.left, client.bottom - 1, nullptr);
+	LineTo(dc, client.right, client.bottom - 1);
+	SelectObject(dc, oldPen);
+	DeleteObject(borderPen);
+	if (oldFont) {
+		SelectObject(dc, oldFont);
+	}
+	if (!suppliedDc) {
+		EndPaint(handle, &paint);
+	}
+}
+
+LRESULT CALLBACK ModernHeaderProc(HWND handle, UINT message, WPARAM wParam, LPARAM lParam,
+	UINT_PTR subclassId, DWORD_PTR)
+{
+	if (message == WM_PAINT) {
+		PaintModernHeader(handle);
+		return 0;
+	}
+	if (message == WM_PRINTCLIENT) {
+		PaintModernHeader(handle, reinterpret_cast<HDC>(wParam));
+		return 0;
+	}
+	if (message == WM_THEMECHANGED || message == WM_SETTINGCHANGE) {
+		InvalidateRect(handle, nullptr, TRUE);
+	}
+	else if (message == WM_NCDESTROY) {
+		RemoveWindowSubclass(handle, ModernHeaderProc, subclassId);
+	}
+	return DefSubclassProc(handle, message, wParam, lParam);
+}
+
+void PaintModernStatusBar(HWND handle, HDC suppliedDc = nullptr)
+{
+	PAINTSTRUCT paint{};
+	HDC dc = suppliedDc ? suppliedDc : BeginPaint(handle, &paint);
+	if (!dc) {
+		return;
+	}
+
+	RECT client{};
+	GetClientRect(handle, &client);
+	FillControlBackground(dc, client, interface_colour::panel);
+	SetBkMode(dc, TRANSPARENT);
+	SetTextColor(dc, ToColorRef(GetInterfaceColour(interface_colour::muted)));
+
+	int const length = LOWORD(SendMessageW(handle, SB_GETTEXTLENGTHW, 0, 0));
+	std::wstring text(static_cast<size_t>(length) + 1, L'\0');
+	SendMessageW(handle, SB_GETTEXTW, 0, reinterpret_cast<LPARAM>(text.data()));
+	RECT textRect = client;
+	textRect.left += 8;
+	textRect.right -= 8;
+	auto const font = reinterpret_cast<HFONT>(SendMessageW(handle, WM_GETFONT, 0, 0));
+	auto const oldFont = font ? SelectObject(dc, font) : nullptr;
+	DrawTextW(dc, text.c_str(), length, &textRect,
+		DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
+
+	auto const borderPen = CreatePen(PS_SOLID, 1, ToColorRef(GetInterfaceColour(interface_colour::border)));
+	auto const oldPen = SelectObject(dc, borderPen);
+	MoveToEx(dc, client.left, client.top, nullptr);
+	LineTo(dc, client.right, client.top);
+	SelectObject(dc, oldPen);
+	DeleteObject(borderPen);
+	if (oldFont) {
+		SelectObject(dc, oldFont);
+	}
+	if (!suppliedDc) {
+		EndPaint(handle, &paint);
+	}
+}
+
+LRESULT CALLBACK ModernStatusProc(HWND handle, UINT message, WPARAM wParam, LPARAM lParam,
+	UINT_PTR subclassId, DWORD_PTR)
+{
+	if (message == WM_PAINT && SendMessageW(handle, SB_GETPARTS, 0, 0) == 1) {
+		PaintModernStatusBar(handle);
+		return 0;
+	}
+	if (message == WM_PRINTCLIENT && SendMessageW(handle, SB_GETPARTS, 0, 0) == 1) {
+		PaintModernStatusBar(handle, reinterpret_cast<HDC>(wParam));
+		return 0;
+	}
+	if (message == WM_THEMECHANGED || message == WM_SETTINGCHANGE) {
+		InvalidateRect(handle, nullptr, TRUE);
+	}
+	else if (message == WM_NCDESTROY) {
+		RemoveWindowSubclass(handle, ModernStatusProc, subclassId);
+	}
+	return DefSubclassProc(handle, message, wParam, lParam);
+}
+
 void ApplyNativeWindowAppearance(wxWindow& window, bool dark)
 {
 	auto const handle = reinterpret_cast<HWND>(window.GetHandle());
@@ -55,7 +250,8 @@ void ApplyNativeWindowAppearance(wxWindow& window, bool dark)
 	}
 
 	auto const themeLibrary = GetModuleHandleW(L"uxtheme.dll");
-	if (auto const allowDarkMode = GetFunction<AllowDarkModeForWindowFunction>(themeLibrary, 133)) {
+	auto const allowDarkMode = GetFunction<AllowDarkModeForWindowFunction>(themeLibrary, 133);
+	if (allowDarkMode) {
 		allowDarkMode(handle, dark ? TRUE : FALSE);
 	}
 
@@ -64,7 +260,9 @@ void ApplyNativeWindowAppearance(wxWindow& window, bool dark)
 	bool const isTree = wcscmp(className, WC_TREEVIEWW) == 0;
 	bool const isList = wcscmp(className, WC_LISTVIEWW) == 0;
 	bool const isHeader = wcscmp(className, WC_HEADERW) == 0;
-	if (auto const setWindowTheme = GetFunction<SetWindowThemeFunction>(themeLibrary, "SetWindowTheme")) {
+	bool const isStatusBar = wcscmp(className, STATUSCLASSNAMEW) == 0;
+	auto const setWindowTheme = GetFunction<SetWindowThemeFunction>(themeLibrary, "SetWindowTheme");
+	if (setWindowTheme) {
 		if (isTree || isList || wcscmp(className, L"ScrollBar") == 0) {
 			setWindowTheme(handle, dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
 		}
@@ -72,9 +270,19 @@ void ApplyNativeWindowAppearance(wxWindow& window, bool dark)
 			setWindowTheme(handle, dark ? L"DarkMode_ItemsView" : L"Explorer", nullptr);
 		}
 	}
+	if (isHeader) {
+		SetWindowSubclass(handle, ModernHeaderProc, modernHeaderSubclassId, 0);
+		InvalidateRect(handle, nullptr, TRUE);
+	}
+	else if (isStatusBar) {
+		SetWindowSubclass(handle, ModernStatusProc, modernStatusSubclassId, 0);
+		InvalidateRect(handle, nullptr, TRUE);
+	}
 
-	COLORREF const background = dark ? RGB(27, 29, 33) : GetSysColor(COLOR_WINDOW);
-	COLORREF const text = dark ? RGB(232, 234, 237) : GetSysColor(COLOR_WINDOWTEXT);
+	auto const inputColour = GetInterfaceColour(interface_colour::input);
+	auto const textColour = GetInterfaceColour(interface_colour::text);
+	COLORREF const background = RGB(inputColour.Red(), inputColour.Green(), inputColour.Blue());
+	COLORREF const text = RGB(textColour.Red(), textColour.Green(), textColour.Blue());
 	if (isTree) {
 		TreeView_SetBkColor(handle, background);
 		TreeView_SetTextColor(handle, text);
@@ -83,6 +291,19 @@ void ApplyNativeWindowAppearance(wxWindow& window, bool dark)
 		ListView_SetBkColor(handle, background);
 		ListView_SetTextBkColor(handle, background);
 		ListView_SetTextColor(handle, text);
+
+		// O cabeçalho é uma janela Win32 interna, sem um wxWindow próprio e sem wxEVT_CREATE.
+		auto const header = ListView_GetHeader(handle);
+		if (header) {
+			if (allowDarkMode) {
+				allowDarkMode(header, dark ? TRUE : FALSE);
+			}
+			if (setWindowTheme) {
+				setWindowTheme(header, dark ? L"DarkMode_ItemsView" : L"Explorer", nullptr);
+			}
+			SetWindowSubclass(header, ModernHeaderProc, modernHeaderSubclassId, 0);
+			InvalidateRect(header, nullptr, TRUE);
+		}
 	}
 
 	if (window.IsTopLevel()) {
@@ -93,6 +314,16 @@ void ApplyNativeWindowAppearance(wxWindow& window, bool dark)
 			if (FAILED(setAttribute(handle, 20, &enabled, sizeof(enabled)))) {
 				setAttribute(handle, 19, &enabled, sizeof(enabled));
 			}
+
+			auto const captionColour = GetInterfaceColour(interface_colour::panel);
+			auto const borderColour = GetInterfaceColour(interface_colour::border);
+			auto const titleColour = GetInterfaceColour(interface_colour::text);
+			COLORREF const caption = RGB(captionColour.Red(), captionColour.Green(), captionColour.Blue());
+			COLORREF const border = RGB(borderColour.Red(), borderColour.Green(), borderColour.Blue());
+			COLORREF const title = RGB(titleColour.Red(), titleColour.Green(), titleColour.Blue());
+			setAttribute(handle, 35, &caption, sizeof(caption));
+			setAttribute(handle, 34, &border, sizeof(border));
+			setAttribute(handle, 36, &title, sizeof(title));
 		}
 		if (dwmLibrary) {
 			FreeLibrary(dwmLibrary);
@@ -147,51 +378,91 @@ wxColour CInterfaceAppearance::GetColour(interface_colour role) const
 {
 	if (!dark_) {
 		switch (role) {
-		case interface_colour::input:
-			return wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
-		case interface_colour::text:
-			return wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
+		case interface_colour::background:
+			return wxColour(244, 244, 246);
 		case interface_colour::panel:
+		case interface_colour::input:
+			return wxColour(255, 255, 255);
+		case interface_colour::surface_strong:
+			return wxColour(236, 234, 248);
+		case interface_colour::border:
+			return wxColour(218, 216, 232);
+		case interface_colour::text:
+			return wxColour(23, 22, 42);
+		case interface_colour::muted:
+			return wxColour(102, 101, 122);
+		case interface_colour::accent:
+			return wxColour(105, 65, 198);
+		case interface_colour::accent_text:
 		default:
-			return wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE);
+			return wxColour(255, 255, 255);
 		}
 	}
 
 	switch (role) {
+	case interface_colour::background:
+		return wxColour(11, 13, 32);
 	case interface_colour::input:
-		return wxColour(27, 29, 33);
+		return wxColour(6, 7, 16);
+	case interface_colour::surface_strong:
+		return wxColour(26, 31, 66);
+	case interface_colour::border:
+		return wxColour(39, 45, 89);
 	case interface_colour::text:
-		return wxColour(232, 234, 237);
+		return wxColour(245, 244, 255);
+	case interface_colour::muted:
+		return wxColour(185, 187, 209);
+	case interface_colour::accent:
+		return wxColour(157, 114, 239);
+	case interface_colour::accent_text:
+		return wxColour(11, 13, 32);
 	case interface_colour::panel:
 	default:
-		return wxColour(36, 38, 42);
+		return wxColour(18, 22, 49);
 	}
 }
 
 void CInterfaceAppearance::Apply(wxWindow& window)
 {
-	if (!dark_) {
-		window.SetBackgroundColour(wxColour());
-		window.SetForegroundColour(wxColour());
-#ifdef __WXMSW__
-		ApplyNativeWindowAppearance(window, false);
-#endif
-		window.Refresh();
-		return;
-	}
-
 	bool const acceptsText = dynamic_cast<wxTextCtrl*>(&window) ||
 		dynamic_cast<wxComboBox*>(&window) || dynamic_cast<wxChoice*>(&window);
 	bool const displaysItems = dynamic_cast<wxListCtrl*>(&window) ||
 		dynamic_cast<wxTreeCtrl*>(&window) || dynamic_cast<wxListBox*>(&window) ||
 		dynamic_cast<wxCheckListBox*>(&window);
+	bool const isButton = dynamic_cast<wxButton*>(&window) ||
+		dynamic_cast<wxBitmapButton*>(&window);
+	bool const isStatusBar = dynamic_cast<wxStatusBar*>(&window);
+	bool const isDivider = dynamic_cast<wxStaticLine*>(&window) ||
+		dynamic_cast<wxSplitterWindow*>(&window);
 
-	window.SetBackgroundColour(GetColour(
-		acceptsText || displaysItems ? interface_colour::input : interface_colour::panel));
-	window.SetForegroundColour(GetColour(interface_colour::text));
+	interface_colour backgroundRole = interface_colour::panel;
+	interface_colour foregroundRole = interface_colour::text;
+	if (window.IsTopLevel()) {
+		backgroundRole = interface_colour::background;
+	}
+	else if (acceptsText || displaysItems) {
+		backgroundRole = interface_colour::input;
+	}
+	else if (isButton || isStatusBar) {
+		backgroundRole = interface_colour::surface_strong;
+	}
+	else if (isDivider) {
+		backgroundRole = interface_colour::border;
+	}
+
+	if (window.GetName() == L"ninja-accent-button") {
+		backgroundRole = interface_colour::accent;
+		foregroundRole = interface_colour::accent_text;
+	}
+	else if (window.GetName() == L"ninja-muted-label") {
+		foregroundRole = interface_colour::muted;
+	}
+
+	window.SetBackgroundColour(GetColour(backgroundRole));
+	window.SetForegroundColour(GetColour(foregroundRole));
 #ifdef __WXMSW__
 	// Os controles comuns podem substituir a paleta do wxWidgets ao ativar o tema nativo.
-	ApplyNativeWindowAppearance(window, true);
+	ApplyNativeWindowAppearance(window, dark_);
 #endif
 	window.Refresh();
 }
@@ -256,8 +527,16 @@ wxColour GetInterfaceColour(interface_colour role)
 	if (active_appearance) {
 		return active_appearance->GetColour(role);
 	}
-	return wxSystemSettings::GetColour(role == interface_colour::text ?
+	return wxSystemSettings::GetColour(
+		role == interface_colour::text || role == interface_colour::muted ?
 		wxSYS_COLOUR_WINDOWTEXT : wxSYS_COLOUR_WINDOW);
+}
+
+void ApplyInterfaceAppearance(wxWindow& window)
+{
+	if (active_appearance) {
+		active_appearance->Apply(window);
+	}
 }
 
 wxColor site_colour_to_wx(site_colour c)

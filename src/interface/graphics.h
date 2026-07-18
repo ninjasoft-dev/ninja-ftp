@@ -72,9 +72,15 @@ enum class interface_appearance
 
 enum class interface_colour
 {
+	background,
 	panel,
 	input,
-	text
+	surface_strong,
+	border,
+	text,
+	muted,
+	accent,
+	accent_text
 };
 
 // Mantém a paleta do wxWidgets e dos controles nativos coerente em todas as janelas.
@@ -90,6 +96,8 @@ public:
 	wxColour GetColour(interface_colour role) const;
 
 private:
+	friend void ApplyInterfaceAppearance(wxWindow& window);
+
 	void Apply(wxWindow& window);
 	void ApplyRecursively(wxWindow& window);
 	void ConfigureNativeAppearance();
@@ -102,6 +110,7 @@ private:
 
 bool IsDarkInterface();
 wxColour GetInterfaceColour(interface_colour role);
+void ApplyInterfaceAppearance(wxWindow& window);
 
 class CWindowTinter final
 {
