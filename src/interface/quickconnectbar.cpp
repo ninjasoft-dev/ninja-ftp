@@ -13,6 +13,7 @@
 
 #include <wx/control.h>
 #include <wx/dcbuffer.h>
+#include <wx/graphics.h>
 #include <wx/menu.h>
 #include <wx/statline.h>
 
@@ -211,20 +212,42 @@ private:
 
 		wxRect outer = GetClientRect();
 		outer.Deflate(1);
-		dc.SetPen(wxPen(GetInterfaceColour(interface_colour::border)));
-		dc.SetBrush(wxBrush(GetInterfaceColour(interface_colour::surface_strong)));
-		dc.DrawRoundedRectangle(outer, FromDIP(8));
-
 		int const selected = IsDarkInterface() ? 1 : 0;
+		int const innerPadding = FromDIP(3);
 		wxRect active = outer;
-		active.SetWidth(outer.GetWidth() / 2);
-		if (selected == 1) {
-			active.Offset(outer.GetWidth() - active.GetWidth(), 0);
+		active.Deflate(innerPadding);
+		int const firstSegmentWidth = active.GetWidth() / 2;
+		if (selected == 0) {
+			active.SetWidth(firstSegmentWidth);
 		}
-		active.Deflate(FromDIP(2));
-		dc.SetPen(*wxTRANSPARENT_PEN);
-		dc.SetBrush(wxBrush(GetInterfaceColour(interface_colour::accent)));
-		dc.DrawRoundedRectangle(active, FromDIP(6));
+		else {
+			active.SetX(active.GetX() + firstSegmentWidth);
+			active.SetWidth(active.GetWidth() - firstSegmentWidth);
+		}
+
+		std::unique_ptr<wxGraphicsContext> graphics(wxGraphicsContext::Create(dc));
+		if (graphics) {
+			graphics->SetAntialiasMode(wxANTIALIAS_DEFAULT);
+			graphics->SetPen(wxPen(GetInterfaceColour(interface_colour::border), 1));
+			graphics->SetBrush(wxBrush(GetInterfaceColour(interface_colour::surface_strong)));
+			graphics->DrawRoundedRectangle(
+				outer.GetX() + 0.5, outer.GetY() + 0.5,
+				outer.GetWidth() - 1.0, outer.GetHeight() - 1.0, FromDIP(9));
+
+			graphics->SetPen(*wxTRANSPARENT_PEN);
+			graphics->SetBrush(wxBrush(GetInterfaceColour(interface_colour::accent)));
+			graphics->DrawRoundedRectangle(
+				active.GetX(), active.GetY(), active.GetWidth(), active.GetHeight(), FromDIP(6));
+
+			if (HasFocus()) {
+				graphics->SetPen(wxPen(GetInterfaceColour(interface_colour::accent), 1));
+				graphics->SetBrush(*wxTRANSPARENT_BRUSH);
+				graphics->DrawRoundedRectangle(
+					outer.GetX() - 0.5, outer.GetY() - 0.5,
+					outer.GetWidth() + 1.0, outer.GetHeight() + 1.0, FromDIP(9));
+			}
+		}
+		graphics.reset();
 
 		auto font = GetFont();
 		font.SetWeight(wxFONTWEIGHT_BOLD);
@@ -239,12 +262,6 @@ private:
 				(segment == hoveredSegment_ ? interface_colour::text : interface_colour::muted);
 			dc.SetTextForeground(GetInterfaceColour(textRole));
 			dc.DrawLabel(segment == 0 ? _("Light") : _("Dark"), labelRect, wxALIGN_CENTER);
-		}
-
-		if (HasFocus()) {
-			dc.SetPen(wxPen(GetInterfaceColour(interface_colour::accent), 1, wxPENSTYLE_DOT));
-			dc.SetBrush(*wxTRANSPARENT_BRUSH);
-			dc.DrawRoundedRectangle(outer, FromDIP(8));
 		}
 	}
 

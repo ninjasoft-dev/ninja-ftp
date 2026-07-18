@@ -10,6 +10,8 @@ dist_resources_DATA = \
 resources16dir = $(pkgdatadir)/resources/16x16
 dist_resources16_DATA = \
 	16x16/filezilla.png \
+	16x16/ninjatransfer_dark.png \
+	16x16/ninjatransfer_light.png \
 	16x16/throbber.gif \
 	16x16/unknown.png
 
@@ -20,13 +22,22 @@ resources24dir = $(pkgdatadir)/resources/24x24
 dist_resources24_DATA = 24x24/unknown.png
 
 resources32dir = $(pkgdatadir)/resources/32x32
-dist_resources32_DATA = 32x32/filezilla.png
+dist_resources32_DATA = \
+	32x32/filezilla.png \
+	32x32/ninjatransfer_dark.png \
+	32x32/ninjatransfer_light.png
 
 resources48dir = $(pkgdatadir)/resources/48x48
-dist_resources48_DATA = 48x48/filezilla.png
+dist_resources48_DATA = \
+	48x48/filezilla.png \
+	48x48/ninjatransfer_dark.png \
+	48x48/ninjatransfer_light.png
 
 resources480dir = $(pkgdatadir)/resources/480x480
-dist_resources480_DATA = 480x480/filezilla.png
+dist_resources480_DATA = \
+	480x480/filezilla.png \
+	480x480/ninjatransfer_dark.png \
+	480x480/ninjatransfer_light.png
 
 if USE_RESOURCEFILE
 nodist_noinst_DATA = filezilla.o
@@ -41,6 +52,9 @@ endif
 dist_noinst_DATA = \
 	filezilla.rc \
 	NinjaTransfer.ico \
+	ninjasoft-ninja-adaptive.png \
+	ninjasoft-ninja-dark.png \
+	ninjasoft-ninja-light.png \
 	FileZilla.icns \
 	filezilla.entitlements \
 	MacInfo.plist.in \

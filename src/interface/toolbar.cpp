@@ -10,6 +10,7 @@
 #include "toolbar.h"
 
 #include <wx/dcclient.h>
+#include <wx/dcmemory.h>
 
 namespace {
 	constexpr int toolbarStyle = wxTB_FLAT | wxTB_HORIZONTAL | wxTB_NODIVIDER;
@@ -89,6 +90,7 @@ CToolBar::CToolBar(CMainFrame& mainFrame, COptions& options)
 	options_.watch(OPTION_SHOW_TREE_LOCAL, this);
 	options_.watch(OPTION_SHOW_TREE_REMOTE, this);
 	options_.watch(OPTION_MESSAGELOG_POSITION, this);
+	options_.watch(OPTION_INTERFACE_APPEARANCE, this);
 
 	ToggleTool(XRCID("ID_TOOLBAR_FILTER"), CFilterManager::HasActiveFilters());
 	ToggleTool(XRCID("ID_TOOLBAR_LOGVIEW"), options_.get_int(OPTION_SHOW_MESSAGELOG) != 0);
@@ -118,7 +120,9 @@ void CToolBar::MakeTool(wxToolBar& toolbar, char const* id, std::wstring const& 
 	}
 
 	wxBitmap bmp = CThemeProvider::Get()->CreateBitmap(art, wxART_TOOLBAR, iconSize_, true);
-	toolbar.AddTool(XRCID(id), wxString(), bmp, wxBitmap(), type, tooltip, help);
+	int const toolId = XRCID(id);
+	baseBitmaps_[toolId] = bmp;
+	toolbar.AddTool(toolId, wxString(), bmp, wxBitmap(), type, tooltip, help);
 }
 
 void CToolBar::MakeTools()
@@ -129,19 +133,19 @@ void CToolBar::MakeTools()
 	MakeTool(*localToolBar_, "ID_TOOLBAR_SITEMANAGER", L"ART_SITEMANAGER", _("Open the Site Manager. Right-click for a list of sites."), _("Open the Site Manager"), wxITEM_DROPDOWN);
 #endif
 	localToolBar_->AddSeparator();
-	MakeTool(*localToolBar_, "ID_TOOLBAR_LOGVIEW", L"ART_LOGVIEW", _("Toggles the display of the message log"), wxString(), wxITEM_CHECK);
-	MakeTool(*localToolBar_, "ID_TOOLBAR_LOCALTREEVIEW", L"ART_LOCALTREEVIEW", _("Toggles the display of the local directory tree"), wxString(), wxITEM_CHECK);
-	MakeTool(*localToolBar_, "ID_TOOLBAR_QUEUEVIEW", L"ART_QUEUEVIEW", _("Toggles the display of the transfer queue"), wxString(), wxITEM_CHECK);
+	MakeTool(*localToolBar_, "ID_TOOLBAR_LOGVIEW", L"ART_LOGVIEW", _("Toggles the display of the message log"));
+	MakeTool(*localToolBar_, "ID_TOOLBAR_LOCALTREEVIEW", L"ART_LOCALTREEVIEW", _("Toggles the display of the local directory tree"));
+	MakeTool(*localToolBar_, "ID_TOOLBAR_QUEUEVIEW", L"ART_QUEUEVIEW", _("Toggles the display of the transfer queue"));
 	MakeTool(*localToolBar_, "ID_TOOLBAR_REFRESH", L"ART_REFRESH", _("Refresh the file and folder lists"));
 
-	MakeTool(*remoteToolBar_, "ID_TOOLBAR_REMOTETREEVIEW", L"ART_REMOTETREEVIEW", _("Toggles the display of the remote directory tree"), wxString(), wxITEM_CHECK);
+	MakeTool(*remoteToolBar_, "ID_TOOLBAR_REMOTETREEVIEW", L"ART_REMOTETREEVIEW", _("Toggles the display of the remote directory tree"));
 	remoteToolBar_->AddSeparator();
-	MakeTool(*remoteToolBar_, "ID_TOOLBAR_PROCESSQUEUE", L"ART_PROCESSQUEUE", _("Toggles processing of the transfer queue"), wxString(), wxITEM_CHECK);
+	MakeTool(*remoteToolBar_, "ID_TOOLBAR_PROCESSQUEUE", L"ART_PROCESSQUEUE", _("Toggles processing of the transfer queue"));
 	MakeTool(*remoteToolBar_, "ID_TOOLBAR_CANCEL", L"ART_CANCEL", _("Cancels the current operation"), _("Cancel current operation"));
 	MakeTool(*remoteToolBar_, "ID_TOOLBAR_DISCONNECT", L"ART_DISCONNECT", _("Disconnects from the currently visible server"), _("Disconnect from server"));
 	MakeTool(*remoteToolBar_, "ID_TOOLBAR_RECONNECT", L"ART_RECONNECT", _("Reconnects to the last used server"));
 	remoteToolBar_->AddSeparator();
-	MakeTool(*remoteToolBar_, "ID_TOOLBAR_FILTER", L"ART_FILTER", _("Opens the directory listing filter dialog. Right-click to toggle filters.") + L"\n" + _("Files matching a filter rule are removed from directory listings."), _("Filter the directory listings"), wxITEM_CHECK);
+	MakeTool(*remoteToolBar_, "ID_TOOLBAR_FILTER", L"ART_FILTER", _("Opens the directory listing filter dialog. Right-click to toggle filters.") + L"\n" + _("Files matching a filter rule are removed from directory listings."), _("Filter the directory listings"));
 	MakeTool(*remoteToolBar_, "ID_TOOLBAR_REFRESH", L"ART_REFRESH", _("Refresh the file and folder lists"));
 }
 
@@ -169,9 +173,36 @@ wxToolBar* CToolBar::GetToolBarForTool(int id) const
 
 void CToolBar::ToggleTool(int id, bool toggle)
 {
+	selectedTools_[id] = toggle;
 	auto toolbar = FindToolBar(id);
-	if (toolbar) {
-		toolbar->ToggleTool(id, toggle);
+	auto const bitmap = baseBitmaps_.find(id);
+	if (!toolbar || bitmap == baseBitmaps_.end()) {
+		return;
+	}
+
+	wxBitmap rendered(bitmap->second.ConvertToImage());
+	if (toggle) {
+		wxMemoryDC dc(rendered);
+		int const outerRadius = wxMax(FromDIP(3), rendered.GetWidth() / 7);
+		wxPoint const centre(
+			rendered.GetWidth() - outerRadius,
+			rendered.GetHeight() - outerRadius);
+		dc.SetPen(*wxTRANSPARENT_PEN);
+		dc.SetBrush(wxBrush(GetInterfaceColour(interface_colour::panel)));
+		dc.DrawCircle(centre, outerRadius);
+		dc.SetBrush(wxBrush(GetInterfaceColour(interface_colour::accent)));
+		dc.DrawCircle(centre, wxMax(FromDIP(2), outerRadius / 2));
+		dc.SelectObject(wxNullBitmap);
+	}
+	toolbar->SetToolNormalBitmap(id, rendered);
+	toolbar->Refresh();
+}
+
+void CToolBar::RefreshSelectedTools()
+{
+	auto const selections = selectedTools_;
+	for (auto const& [id, selected] : selections) {
+		ToggleTool(id, selected);
 	}
 }
 
@@ -247,6 +278,10 @@ void CToolBar::UpdateToolbarState()
 
 void CToolBar::OnOptionsChanged(watched_options const& options)
 {
+	if (options.test(OPTION_INTERFACE_APPEARANCE)) {
+		// A mudança da paleta ocorre logo após a gravação da opção.
+		CallAfter([this] { RefreshSelectedTools(); });
+	}
 	if (options.test(OPTION_SHOW_MESSAGELOG)) {
 		ToggleTool(XRCID("ID_TOOLBAR_LOGVIEW"), options_.get_int(OPTION_SHOW_MESSAGELOG) != 0);
 	}

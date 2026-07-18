@@ -28,6 +28,7 @@ protected:
 	void MakeTool(wxToolBar& toolbar, char const* id, std::wstring const& art, wxString const& tooltip, wxString const& help = wxString(), wxItemKind type = wxITEM_NORMAL);
 	void MakeTools();
 	wxToolBar* FindToolBar(int id) const;
+	void RefreshSelectedTools();
 
 	virtual void OnStateChange(CState* pState, t_statechange_notifications notification, std::wstring const& data, const void* data2) override;
 	virtual void OnOptionsChanged(watched_options const& options);
@@ -45,6 +46,8 @@ protected:
 	wxToolBar* localToolBar_{};
 	wxToolBar* remoteToolBar_{};
 	std::map<int, HiddenTool> hiddenTools_;
+	std::map<int, wxBitmap> baseBitmaps_;
+	std::map<int, bool> selectedTools_;
 
 	wxSize iconSize_;
 };

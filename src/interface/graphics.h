@@ -104,6 +104,7 @@ private:
 	void ApplyRecursively(wxWindow& window);
 	void ConfigureNativeAppearance();
 	void QueueSystemAppearanceUpdate();
+	void RefreshTopLevelWindows();
 
 	interface_appearance configured_{};
 	bool dark_{};

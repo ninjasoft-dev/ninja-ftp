@@ -404,11 +404,8 @@ CMainFrame::CMainFrame(COptions& options)
 	::SetWindowText((HWND)pChild->GetHandle(), _T("FileZilla process identificator 3919DB0A-082D-4560-8E2F-381A35969FB4"));
 #endif
 
-#ifdef __WXMSW__
-	SetIcon(wxICON(appicon));
-#else
-	SetIcons(CThemeProvider::GetIconBundle(_T("ART_FILEZILLA")));
-#endif
+	SetIcons(CThemeProvider::GetIconBundle(
+		branding::GetInterfaceIconArtId(IsDarkInterface())));
 
 	CPowerManagement::Create(this);
 
@@ -1639,8 +1636,9 @@ void CMainFrame::OnSiteManager(wxCommandEvent& e)
 
 void CMainFrame::OnProcessQueue(wxCommandEvent& event)
 {
+	(void)event;
 	if (m_pQueueView) {
-		m_pQueueView->SetActive(event.IsChecked());
+		m_pQueueView->SetActive(!m_pQueueView->IsActive());
 	}
 }
 
@@ -2836,7 +2834,8 @@ void CMainFrame::OnIconize(wxIconizeEvent& event)
 
 	bool installed;
 	if (!m_taskBarIcon->IsIconInstalled()) {
-		installed = m_taskBarIcon->SetIcon(CThemeProvider::GetIcon(_T("ART_FILEZILLA")), GetTitle());
+		installed = m_taskBarIcon->SetIcon(CThemeProvider::GetIcon(
+			branding::GetInterfaceIconArtId(IsDarkInterface())), GetTitle());
 	}
 	else {
 		installed = true;

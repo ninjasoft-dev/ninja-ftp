@@ -147,7 +147,7 @@ void CViewHeader::OnComboPaint(wxPaintEvent& event)
 	wxClientDC dc(box);
 	dc.SetBrush(*wxTRANSPARENT_BRUSH);
 
-	int thumbWidth = ::GetSystemMetrics(SM_CXHTHUMB);
+	int thumbWidth = ::GetSystemMetrics(SM_CXVSCROLL);
 
 	if (m_bLeftMousePressed) {
 		if (!SendMessage((HWND)box->GetHandle(), CB_GETDROPPEDSTATE, 0, 0))
@@ -216,8 +216,28 @@ void CViewHeader::OnComboPaint(wxPaintEvent& event)
 		}
 	}
 
-	// Cobre a moldura 3D que o Windows insiste em manter no combo.
+	// Substitui o botão nativo para que a seta preserve o contraste nos dois temas.
 	wxRect rect = box->GetClientRect();
+	int const buttonLeft = rect.GetRight() - thumbWidth + 1;
+	wxRect buttonRect(
+		buttonLeft, rect.GetTop() + FromDIP(3),
+		thumbWidth - FromDIP(3), rect.GetHeight() - FromDIP(6));
+	dc.SetPen(*wxTRANSPARENT_PEN);
+	dc.SetBrush(wxBrush(GetInterfaceColour(
+		m_bLeftMousePressed ? interface_colour::surface_strong : interface_colour::input)));
+	dc.DrawRectangle(buttonRect);
+	dc.SetPen(wxPen(GetInterfaceColour(interface_colour::border)));
+	dc.DrawLine(
+		buttonRect.GetLeft(), buttonRect.GetTop(),
+		buttonRect.GetLeft(), buttonRect.GetBottom());
+
+	int const centreX = buttonRect.GetLeft() + buttonRect.GetWidth() / 2;
+	int const centreY = buttonRect.GetTop() + buttonRect.GetHeight() / 2;
+	dc.SetPen(wxPen(GetInterfaceColour(interface_colour::accent), FromDIP(2)));
+	dc.DrawLine(centreX - FromDIP(4), centreY - FromDIP(2), centreX, centreY + FromDIP(2));
+	dc.DrawLine(centreX, centreY + FromDIP(2), centreX + FromDIP(4), centreY - FromDIP(2));
+
+	// Cobre a moldura 3D que o Windows insiste em manter no combo.
 	dc.SetPen(wxPen(GetInterfaceColour(interface_colour::border)));
 	for (int inset = 0; inset != FromDIP(3); ++inset) {
 		int const left = rect.GetLeft() + inset;

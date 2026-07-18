@@ -22,6 +22,11 @@ inline wchar_t const* GetAppUserModelId()
 	return L"NinjaSoft.NinjaTransfer";
 }
 
+inline wxString GetInterfaceIconArtId(bool dark)
+{
+	return dark ? L"ART_NINJATRANSFER_DARK" : L"ART_NINJATRANSFER_LIGHT";
+}
+
 }
 
 #endif

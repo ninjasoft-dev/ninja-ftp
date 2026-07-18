@@ -1,6 +1,8 @@
 #include "filezilla.h"
 
+#include "branding.h"
 #include "graphics.h"
+#include "themeprovider.h"
 
 #include <wx/app.h>
 #include <wx/bmpbuttn.h>
@@ -12,6 +14,7 @@
 #include <wx/statline.h>
 #include <wx/statusbr.h>
 #include <wx/textctrl.h>
+#include <wx/toplevel.h>
 #include <wx/treectrl.h>
 #include <wx/weakref.h>
 
@@ -425,6 +428,7 @@ void ApplyNativeWindowAppearance(wxWindow& window, bool dark)
 	bool const isList = wcscmp(className, WC_LISTVIEWW) == 0;
 	bool const isHeader = wcscmp(className, WC_HEADERW) == 0;
 	bool const isStatusBar = wcscmp(className, STATUSCLASSNAMEW) == 0;
+	bool const isToolbar = wcscmp(className, TOOLBARCLASSNAMEW) == 0;
 	auto const nativeStyle = GetWindowLongPtrW(handle, GWL_STYLE);
 	auto const nativeExtendedStyle = GetWindowLongPtrW(handle, GWL_EXSTYLE);
 	bool const needsModernFrame = !window.IsTopLevel() && !isHeader && !isStatusBar &&
@@ -432,7 +436,7 @@ void ApplyNativeWindowAppearance(wxWindow& window, bool dark)
 			(nativeExtendedStyle & (WS_EX_CLIENTEDGE | WS_EX_STATICEDGE)));
 	auto const setWindowTheme = GetFunction<SetWindowThemeFunction>(themeLibrary, "SetWindowTheme");
 	if (setWindowTheme) {
-		if (isTree || isList || wcscmp(className, L"ScrollBar") == 0) {
+		if (isTree || isList || isToolbar || wcscmp(className, L"ScrollBar") == 0) {
 			setWindowTheme(handle, dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
 		}
 		else if (isHeader) {
@@ -658,9 +662,19 @@ void CInterfaceAppearance::SetAppearance(interface_appearance appearance)
 	dark_ = configured_ == interface_appearance::dark ||
 		(configured_ == interface_appearance::automatic && wxSystemSettings::GetAppearance().IsDark());
 	ConfigureNativeAppearance();
+	RefreshTopLevelWindows();
+}
+
+void CInterfaceAppearance::RefreshTopLevelWindows()
+{
+	auto const iconBundle = CThemeProvider::GetIconBundle(
+		branding::GetInterfaceIconArtId(dark_));
 	for (auto const window : wxTopLevelWindows) {
 		if (window) {
 			ApplyRecursively(*window);
+			if (auto const topLevel = dynamic_cast<wxTopLevelWindow*>(window)) {
+				topLevel->SetIcons(iconBundle);
+			}
 		}
 	}
 }
@@ -697,11 +711,7 @@ void CInterfaceAppearance::QueueSystemAppearanceUpdate()
 		}
 		dark_ = useDark;
 		ConfigureNativeAppearance();
-		for (auto const window : wxTopLevelWindows) {
-			if (window) {
-				ApplyRecursively(*window);
-			}
-		}
+		RefreshTopLevelWindows();
 	});
 }
 
