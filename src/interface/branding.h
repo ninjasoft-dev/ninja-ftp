@@ -7,24 +7,24 @@ namespace branding {
 
 inline wxString const& GetProductName()
 {
-	static wxString const name = L"Ninja Transfer";
+	static wxString const name = L"NinjaSoft FTP";
 	return name;
 }
 
 inline wxString const& GetWindowTitle()
 {
-	static wxString const title = L"Ninja Transfer · NinjaSoft";
+	static wxString const title = L"NinjaSoft FTP";
 	return title;
 }
 
 inline wchar_t const* GetAppUserModelId()
 {
-	return L"NinjaSoft.NinjaTransfer";
+	return L"NinjaSoft.FTP";
 }
 
 inline wxString GetInterfaceIconArtId(bool dark)
 {
-	return dark ? L"ART_NINJATRANSFER_DARK" : L"ART_NINJATRANSFER_LIGHT";
+	return dark ? L"ART_NINJASOFTFTP_DARK" : L"ART_NINJASOFTFTP_LIGHT";
 }
 
 }

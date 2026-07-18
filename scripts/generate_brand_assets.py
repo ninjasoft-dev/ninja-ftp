@@ -1,4 +1,4 @@
-"""Gera os ícones do Ninja Transfer a partir da marca oficial da NinjaSoft."""
+"""Gera os ícones do NinjaSoft FTP a partir da marca oficial da NinjaSoft."""
 
 from __future__ import annotations
 
@@ -69,10 +69,10 @@ def generate_application_icons() -> None:
             target_dir / "filezilla.png"
         )
         light_master.resize((size, size), Image.Resampling.LANCZOS).save(
-            target_dir / "ninjatransfer_light.png"
+            target_dir / "ninjasoftftp_light.png"
         )
         dark_master.resize((size, size), Image.Resampling.LANCZOS).save(
-            target_dir / "ninjatransfer_dark.png"
+            target_dir / "ninjasoftftp_dark.png"
         )
 
     ico_sizes = [
@@ -85,7 +85,7 @@ def generate_application_icons() -> None:
         (256, 256),
     ]
     adaptive_master.save(
-        RESOURCE_DIR / "NinjaTransfer.ico", format="ICO", sizes=ico_sizes
+        RESOURCE_DIR / "NinjaSoftFTP.ico", format="ICO", sizes=ico_sizes
     )
 
     encoded_mark = base64.b64encode(ADAPTIVE_MARK_PATH.read_bytes()).decode("ascii")

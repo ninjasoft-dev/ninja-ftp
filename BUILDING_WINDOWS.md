@@ -1,6 +1,6 @@
 # Compilação no Windows
 
-O **Ninja Transfer** usa o ambiente **MSYS2 UCRT64** para gerar um executável
+O **NinjaSoft FTP** usa o ambiente **MSYS2 UCRT64** para gerar um executável
 nativo de 64 bits. O fluxo abaixo mantém os artefatos em `build-ucrt64/` e
 desativa somente a extensão do Explorer, que não é necessária para desenvolver
 ou avaliar a interface do cliente.
