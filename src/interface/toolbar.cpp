@@ -13,6 +13,7 @@
 
 #ifdef __WXMSW__
 #include <commctrl.h>
+#include <wx/imaglist.h>
 #endif
 
 namespace {
@@ -32,6 +33,13 @@ namespace {
 			ToNativeColour(GetInterfaceColour(role)));
 		FillRect(dc, &rect, brush);
 		DeleteObject(brush);
+	}
+
+	wxBitmap CreateHoverBitmap(wxBitmap const& bitmap)
+	{
+		// O hover escurece no tema claro e clareia no escuro sem trocar o desenho.
+		int const lightness = IsDarkInterface() ? 116 : 90;
+		return wxBitmap(bitmap.ConvertToImage().ChangeLightness(lightness));
 	}
 #endif
 }
@@ -68,6 +76,7 @@ CToolBar::CToolBar(CMainFrame& mainFrame, COptions& options)
 	MakeTools();
 	localToolBar_->Realize();
 	remoteToolBar_->Realize();
+	RefreshHoverImages();
 
 	int const toolbarHeight = wxMax(
 		localToolBar_->GetBestSize().GetHeight(),
@@ -130,6 +139,10 @@ CToolBar::CToolBar(CMainFrame& mainFrame, COptions& options)
 CToolBar::~CToolBar()
 {
 	options_.unwatch_all(this);
+#ifdef __WXMSW__
+	SendMessageW(localToolBar_->GetHandle(), TB_SETHOTIMAGELIST, 0, 0);
+	SendMessageW(remoteToolBar_->GetHandle(), TB_SETHOTIMAGELIST, 0, 0);
+#endif
 	for (auto const& [id, hidden] : hiddenTools_) {
 		(void)id;
 		delete hidden.tool;
@@ -203,6 +216,41 @@ void CToolBar::ToggleTool(int id, bool toggle)
 	toolbar->ToggleTool(id, toggle);
 	toolbar->Refresh();
 }
+
+void CToolBar::RefreshHoverImages()
+{
+#ifdef __WXMSW__
+	RefreshHoverImages(*localToolBar_, localHoverImages_);
+	RefreshHoverImages(*remoteToolBar_, remoteHoverImages_);
+#endif
+}
+
+#ifdef __WXMSW__
+void CToolBar::RefreshHoverImages(
+	wxToolBar& toolbar, std::unique_ptr<wxImageList>& images)
+{
+	auto hoverImages = std::make_unique<wxImageList>(
+		iconSize_.x, iconSize_.y, false, 0);
+	// A ordem precisa acompanhar os índices da lista normal criada pelo wxWidgets.
+	for (size_t index = 0; index < toolbar.GetToolsCount(); ++index) {
+		auto const tool = toolbar.GetToolByPos(static_cast<int>(index));
+		if (!tool || tool->GetStyle() != wxTOOL_STYLE_BUTTON) {
+			continue;
+		}
+
+		auto const bitmap = tool->GetBitmap();
+		if (bitmap.IsOk()) {
+			hoverImages->Add(CreateHoverBitmap(bitmap));
+		}
+	}
+
+	auto const nativeImages = reinterpret_cast<HIMAGELIST>(
+		hoverImages->GetHIMAGELIST());
+	SendMessageW(toolbar.GetHandle(), TB_SETHOTIMAGELIST, 0,
+		reinterpret_cast<LPARAM>(nativeImages));
+	images = std::move(hoverImages);
+}
+#endif
 
 void CToolBar::RefreshToolbars()
 {
@@ -349,7 +397,10 @@ void CToolBar::OnOptionsChanged(watched_options const& options)
 {
 	if (options.test(OPTION_INTERFACE_APPEARANCE)) {
 		// A paleta muda antes do próximo ciclo de pintura do toolbar nativo.
-		CallAfter([this] { RefreshToolbars(); });
+		CallAfter([this] {
+			RefreshHoverImages();
+			RefreshToolbars();
+		});
 	}
 	if (options.test(OPTION_SHOW_MESSAGELOG)) {
 		ToggleTool(XRCID("ID_TOOLBAR_LOGVIEW"), options_.get_int(OPTION_SHOW_MESSAGELOG) != 0);
@@ -385,6 +436,7 @@ bool CToolBar::ShowTool(int id)
 	entry.toolbar->InsertTool(entry.position, entry.tool);
 	hiddenTools_.erase(hidden);
 	entry.toolbar->Realize();
+	RefreshHoverImages();
 	auto const selected = selectedTools_.find(id);
 	if (selected != selectedTools_.end()) {
 		entry.toolbar->ToggleTool(id, selected->second);
@@ -407,5 +459,6 @@ bool CToolBar::HideTool(int id)
 
 	hiddenTools_[id] = { toolbar, position, tool };
 	toolbar->Realize();
+	RefreshHoverImages();
 	return true;
 }
