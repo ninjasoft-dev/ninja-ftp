@@ -112,6 +112,7 @@ private:
 };
 
 bool IsDarkInterface();
+bool IsDarkSystemTheme();
 wxColour GetInterfaceColour(interface_colour role);
 void ApplyInterfaceAppearance(wxWindow& window);
 void SetInterfaceAppearance(interface_appearance appearance);

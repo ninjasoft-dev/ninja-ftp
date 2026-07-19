@@ -429,6 +429,7 @@ void ApplyNativeWindowAppearance(wxWindow& window, bool dark)
 	bool const isHeader = wcscmp(className, WC_HEADERW) == 0;
 	bool const isStatusBar = wcscmp(className, STATUSCLASSNAMEW) == 0;
 	bool const isToolbar = wcscmp(className, TOOLBARCLASSNAMEW) == 0;
+	bool const isComboBox = wcscmp(className, L"ComboBox") == 0;
 	auto const nativeStyle = GetWindowLongPtrW(handle, GWL_STYLE);
 	auto const nativeExtendedStyle = GetWindowLongPtrW(handle, GWL_EXSTYLE);
 	bool const needsModernFrame = !window.IsTopLevel() && !isHeader && !isStatusBar &&
@@ -441,6 +442,9 @@ void ApplyNativeWindowAppearance(wxWindow& window, bool dark)
 		}
 		else if (isHeader) {
 			setWindowTheme(handle, dark ? L"DarkMode_ItemsView" : L"Explorer", nullptr);
+		}
+		else if (isComboBox) {
+			setWindowTheme(handle, dark ? L"DarkMode_CFD" : L"Explorer", nullptr);
 		}
 	}
 	if (isHeader) {
@@ -480,6 +484,20 @@ void ApplyNativeWindowAppearance(wxWindow& window, bool dark)
 			}
 			SetWindowSubclass(header, ModernHeaderProc, modernHeaderSubclassId, 0);
 			InvalidateRect(header, nullptr, TRUE);
+		}
+	}
+	else if (isComboBox) {
+		COMBOBOXINFO info{};
+		info.cbSize = sizeof(info);
+		if (GetComboBoxInfo(handle, &info) && info.hwndItem) {
+			if (allowDarkMode) {
+				allowDarkMode(info.hwndItem, dark ? TRUE : FALSE);
+			}
+			if (setWindowTheme) {
+				setWindowTheme(
+					info.hwndItem, dark ? L"DarkMode_CFD" : L"Explorer", nullptr);
+			}
+			InvalidateRect(info.hwndItem, nullptr, TRUE);
 		}
 	}
 
@@ -668,7 +686,7 @@ void CInterfaceAppearance::SetAppearance(interface_appearance appearance)
 void CInterfaceAppearance::RefreshTopLevelWindows()
 {
 	auto const iconBundle = CThemeProvider::GetIconBundle(
-		branding::GetInterfaceIconArtId(dark_));
+		branding::GetInterfaceIconArtId(IsDarkSystemTheme()));
 	for (auto const window : wxTopLevelWindows) {
 		if (window) {
 			ApplyRecursively(*window);
@@ -718,6 +736,23 @@ void CInterfaceAppearance::QueueSystemAppearanceUpdate()
 bool IsDarkInterface()
 {
 	return active_appearance && active_appearance->IsDark();
+}
+
+bool IsDarkSystemTheme()
+{
+#ifdef __WXMSW__
+	DWORD usesLightTheme{1};
+	DWORD valueSize{sizeof(usesLightTheme)};
+	auto const result = RegGetValueW(
+		HKEY_CURRENT_USER,
+		L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+		L"SystemUsesLightTheme", RRF_RT_REG_DWORD, nullptr,
+		&usesLightTheme, &valueSize);
+	if (result == ERROR_SUCCESS) {
+		return usesLightTheme == 0;
+	}
+#endif
+	return wxSystemSettings::GetAppearance().IsDark();
 }
 
 wxColour GetInterfaceColour(interface_colour role)

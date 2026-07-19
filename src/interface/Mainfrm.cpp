@@ -405,7 +405,7 @@ CMainFrame::CMainFrame(COptions& options)
 #endif
 
 	SetIcons(CThemeProvider::GetIconBundle(
-		branding::GetInterfaceIconArtId(IsDarkInterface())));
+		branding::GetInterfaceIconArtId(IsDarkSystemTheme())));
 
 	CPowerManagement::Create(this);
 
@@ -2835,7 +2835,7 @@ void CMainFrame::OnIconize(wxIconizeEvent& event)
 	bool installed;
 	if (!m_taskBarIcon->IsIconInstalled()) {
 		installed = m_taskBarIcon->SetIcon(CThemeProvider::GetIcon(
-			branding::GetInterfaceIconArtId(IsDarkInterface())), GetTitle());
+			branding::GetInterfaceIconArtId(IsDarkSystemTheme())), GetTitle());
 	}
 	else {
 		installed = true;

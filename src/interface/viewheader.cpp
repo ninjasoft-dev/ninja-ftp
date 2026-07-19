@@ -40,8 +40,46 @@ public:
 		m_parent = parent;
 	}
 #ifdef __WXMSW__
+	~CComboBoxEx() override
+	{
+		if (m_backgroundBrush) {
+			DeleteObject(m_backgroundBrush);
+		}
+	}
+
 protected:
 	CViewHeader* m_parent;
+	HBRUSH m_backgroundBrush{};
+	COLORREF m_backgroundColour{CLR_INVALID};
+
+	WXLRESULT MSWWindowProc(
+		WXUINT message, WXWPARAM wParam, WXLPARAM lParam) override
+	{
+		if (message == WM_CTLCOLOREDIT || message == WM_CTLCOLORSTATIC) {
+			auto const dc = reinterpret_cast<HDC>(wParam);
+			auto const background = GetInterfaceColour(interface_colour::input);
+			auto const foreground = GetInterfaceColour(
+				IsEnabled() ? interface_colour::text : interface_colour::muted);
+			COLORREF const backgroundColour =
+				RGB(background.Red(), background.Green(), background.Blue());
+			SetBkColor(dc, backgroundColour);
+			SetTextColor(dc,
+				RGB(foreground.Red(), foreground.Green(), foreground.Blue()));
+			SetBkMode(dc, OPAQUE);
+
+			if (!m_backgroundBrush ||
+				m_backgroundColour != backgroundColour) {
+				if (m_backgroundBrush) {
+					DeleteObject(m_backgroundBrush);
+				}
+				m_backgroundBrush = CreateSolidBrush(backgroundColour);
+				m_backgroundColour = backgroundColour;
+			}
+			return reinterpret_cast<WXLRESULT>(m_backgroundBrush);
+		}
+		return wxComboBox::MSWWindowProc(message, wParam, lParam);
+	}
+
 	virtual WXLRESULT MSWDefWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPARAM lParam)
 	{
 		if (nMsg == WM_CANCELMODE)
@@ -218,10 +256,21 @@ void CViewHeader::OnComboPaint(wxPaintEvent& event)
 
 	// Substitui o botão nativo para que a seta preserve o contraste nos dois temas.
 	wxRect rect = box->GetClientRect();
-	int const buttonLeft = rect.GetRight() - thumbWidth + 1;
+	int buttonLeft = rect.GetRight() - thumbWidth + 1;
+	COMBOBOXINFO comboInfo{};
+	comboInfo.cbSize = sizeof(comboInfo);
+	if (GetComboBoxInfo(
+		reinterpret_cast<HWND>(box->GetHandle()), &comboInfo)) {
+		buttonLeft = comboInfo.rcButton.left;
+		thumbWidth = comboInfo.rcButton.right - comboInfo.rcButton.left;
+	}
+
+	int const frameWidth = FromDIP(3);
+	buttonLeft = std::max(buttonLeft, rect.GetLeft() + frameWidth);
 	wxRect buttonRect(
-		buttonLeft, rect.GetTop() + FromDIP(3),
-		thumbWidth - FromDIP(3), rect.GetHeight() - FromDIP(6));
+		buttonLeft, rect.GetTop() + frameWidth,
+		std::max(1, rect.GetRight() - frameWidth - buttonLeft + 1),
+		std::max(1, rect.GetHeight() - 2 * frameWidth));
 	dc.SetPen(*wxTRANSPARENT_PEN);
 	dc.SetBrush(wxBrush(GetInterfaceColour(
 		m_bLeftMousePressed ? interface_colour::surface_strong : interface_colour::input)));
