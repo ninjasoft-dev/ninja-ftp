@@ -20,10 +20,13 @@ integração ao uso diário no Windows.
 
 ## Download para Windows
 
-A versão portátil para Windows 64 bits está disponível na página de
-[releases](https://github.com/ninjasoft-dev/ninja-ftp/releases/latest). Não é
-necessário instalar: baixe o arquivo ZIP, extraia todo o conteúdo e execute
-`bin\NinjaSoftFTP.exe`.
+**[Baixar NinjaSoft FTP 1.0.2 para Windows 64
+bits](https://github.com/ninjasoft-dev/ninja-ftp/releases/latest/download/NinjaSoft-FTP-1.0.2-Windows-x64-portable.zip)**
+
+Não é necessário instalar: baixe o arquivo ZIP, extraia todo o conteúdo e
+execute `bin\NinjaSoftFTP.exe`. As versões anteriores e seus respectivos
+checksums permanecem disponíveis na página de
+[releases](https://github.com/ninjasoft-dev/ninja-ftp/releases).
 
 O arquivo `.sha256` publicado ao lado do ZIP permite conferir a integridade do
 download. Como os binários ainda não possuem assinatura digital, o Windows
