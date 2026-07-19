@@ -18,6 +18,17 @@ integração ao uso diário no Windows.
 - temas automático, claro e escuro;
 - ícones adaptados para fundos claros e escuros.
 
+## Download para Windows
+
+A versão portátil para Windows 64 bits está disponível na página de
+[releases](https://github.com/ninjasoft-dev/ninja-ftp/releases/latest). Não é
+necessário instalar: baixe o arquivo ZIP, extraia todo o conteúdo e execute
+`bin\NinjaSoftFTP.exe`.
+
+O arquivo `.sha256` publicado ao lado do ZIP permite conferir a integridade do
+download. Como os binários ainda não possuem assinatura digital, o Windows
+pode exibir um aviso de reputação na primeira execução.
+
 ## Compilação no Windows
 
 O ambiente de desenvolvimento usa MSYS2 UCRT64. Com as dependências instaladas,
@@ -30,6 +41,12 @@ execute na raiz do projeto:
 O script compila a aplicação, prepara uma versão portátil e, com `-Run`, abre
 o executável. Consulte [BUILDING_WINDOWS.md](BUILDING_WINDOWS.md) para instalar
 as dependências e conhecer as opções de compilação.
+
+Para gerar o mesmo ZIP distribuído nas releases:
+
+```powershell
+.\scripts\package-windows.ps1 -Version 1.0.0
+```
 
 ## Licença e créditos
 

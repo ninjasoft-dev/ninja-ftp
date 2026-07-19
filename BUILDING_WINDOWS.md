@@ -45,6 +45,21 @@ Autotools ou opções de configuração:
 .\scripts\build-windows.ps1 -Reconfigure -Run
 ```
 
+## Pacote portátil
+
+O empacotador executa uma compilação incremental, reúne somente os arquivos
+necessários no Windows, remove símbolos de depuração das cópias distribuídas e
+gera o ZIP acompanhado de seu checksum SHA-256:
+
+```powershell
+.\scripts\package-windows.ps1 -Version 1.0.0
+```
+
+Os artefatos são gravados em `dist/`, que não é versionado. Use
+`-KeepSymbols` apenas em pacotes internos destinados à depuração. O executável
+do pacote recebe o nome `NinjaSoftFTP.exe`; os arquivos produzidos pelo build
+continuam com seus nomes originais.
+
 ## Dependências
 
 O script espera o MSYS2 em `C:\msys64`. Em outra máquina, atualize o ambiente

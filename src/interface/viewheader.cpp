@@ -567,7 +567,7 @@ CRemoteViewHeader::CRemoteViewHeader(wxWindow* pParent, CState& state)
 {
 	state.RegisterHandler(this, STATECHANGE_REMOTE_DIR);
 	state.RegisterHandler(this, STATECHANGE_SERVER);
-	Disable();
+	m_pComboBox->Disable();
 }
 
 void CRemoteViewHeader::OnStateChange(t_statechange_notifications notification, std::wstring const&, const void*)
@@ -579,7 +579,7 @@ void CRemoteViewHeader::OnStateChange(t_statechange_notifications notification, 
 		m_path = m_state.GetRemotePath();
 		if (m_path.empty()) {
 			m_pComboBox->SetValue(_T(""));
-			Disable();
+			m_pComboBox->Disable();
 		}
 		else {
 			Site const& site = m_state.GetSite();
@@ -589,7 +589,7 @@ void CRemoteViewHeader::OnStateChange(t_statechange_notifications notification, 
 				m_sortedRecentDirectories.clear();
 				m_lastServer = site.server;
 			}
-			Enable();
+			m_pComboBox->Enable();
 #ifdef __WXGTK__
 			GetParent()->m_dirtyTabOrder = true;
 #endif

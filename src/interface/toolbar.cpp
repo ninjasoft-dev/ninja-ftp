@@ -13,7 +13,6 @@
 
 #ifdef __WXMSW__
 #include <commctrl.h>
-#include <wx/imaglist.h>
 #endif
 
 namespace {
@@ -35,12 +34,49 @@ namespace {
 		DeleteObject(brush);
 	}
 
-	wxBitmap CreateHoverBitmap(wxBitmap const& bitmap)
+	bool DrawToggleToolBitmap(
+		NMTBCUSTOMDRAW const& draw, bool disabled)
 	{
-		// O hover escurece no tema claro e clareia no escuro sem trocar o desenho.
-		int const lightness = IsDarkInterface() ? 116 : 90;
-		return wxBitmap(bitmap.ConvertToImage().ChangeLightness(lightness));
+		auto const toolbar = draw.nmcd.hdr.hwndFrom;
+		auto const buttonIndex = SendMessageW(toolbar, TB_COMMANDTOINDEX,
+			draw.nmcd.dwItemSpec, 0);
+		if (buttonIndex < 0) {
+			return false;
+		}
+
+		TBBUTTON button{};
+		if (!SendMessageW(toolbar, TB_GETBUTTON, buttonIndex,
+			reinterpret_cast<LPARAM>(&button)) ||
+			(button.fsStyle & BTNS_CHECK) == 0 ||
+			button.iBitmap == I_IMAGECALLBACK) {
+			return false;
+		}
+
+		auto imageList = reinterpret_cast<HIMAGELIST>(SendMessageW(
+			toolbar, disabled ?
+				TB_GETDISABLEDIMAGELIST : TB_GETIMAGELIST, 0, 0));
+		if (!imageList && disabled) {
+			imageList = reinterpret_cast<HIMAGELIST>(
+				SendMessageW(toolbar, TB_GETIMAGELIST, 0, 0));
+		}
+		if (!imageList) {
+			return false;
+		}
+
+		int width{};
+		int height{};
+		if (!ImageList_GetIconSize(imageList, &width, &height)) {
+			return false;
+		}
+
+		RECT const rect = draw.nmcd.rc;
+		int const x = rect.left + (rect.right - rect.left - width) / 2;
+		int const y = rect.top + (rect.bottom - rect.top - height) / 2;
+		UINT const style = disabled ? ILD_BLEND50 : ILD_TRANSPARENT;
+		return ImageList_DrawEx(imageList, button.iBitmap, draw.nmcd.hdc,
+			x, y, width, height, CLR_NONE, CLR_NONE, style) != FALSE;
 	}
+
 #endif
 }
 
@@ -76,7 +112,16 @@ CToolBar::CToolBar(CMainFrame& mainFrame, COptions& options)
 	MakeTools();
 	localToolBar_->Realize();
 	remoteToolBar_->Realize();
-	RefreshHoverImages();
+#ifdef __WXMSW__
+	localToolBar_->Bind(
+		wxEVT_MOTION, &CToolBar::OnToolbarMouseMove, this);
+	localToolBar_->Bind(
+		wxEVT_LEAVE_WINDOW, &CToolBar::OnToolbarMouseLeave, this);
+	remoteToolBar_->Bind(
+		wxEVT_MOTION, &CToolBar::OnToolbarMouseMove, this);
+	remoteToolBar_->Bind(
+		wxEVT_LEAVE_WINDOW, &CToolBar::OnToolbarMouseLeave, this);
+#endif
 
 	int const toolbarHeight = wxMax(
 		localToolBar_->GetBestSize().GetHeight(),
@@ -139,10 +184,6 @@ CToolBar::CToolBar(CMainFrame& mainFrame, COptions& options)
 CToolBar::~CToolBar()
 {
 	options_.unwatch_all(this);
-#ifdef __WXMSW__
-	SendMessageW(localToolBar_->GetHandle(), TB_SETHOTIMAGELIST, 0, 0);
-	SendMessageW(remoteToolBar_->GetHandle(), TB_SETHOTIMAGELIST, 0, 0);
-#endif
 	for (auto const& [id, hidden] : hiddenTools_) {
 		(void)id;
 		delete hidden.tool;
@@ -217,41 +258,6 @@ void CToolBar::ToggleTool(int id, bool toggle)
 	toolbar->Refresh();
 }
 
-void CToolBar::RefreshHoverImages()
-{
-#ifdef __WXMSW__
-	RefreshHoverImages(*localToolBar_, localHoverImages_);
-	RefreshHoverImages(*remoteToolBar_, remoteHoverImages_);
-#endif
-}
-
-#ifdef __WXMSW__
-void CToolBar::RefreshHoverImages(
-	wxToolBar& toolbar, std::unique_ptr<wxImageList>& images)
-{
-	auto hoverImages = std::make_unique<wxImageList>(
-		iconSize_.x, iconSize_.y, false, 0);
-	// A ordem precisa acompanhar os índices da lista normal criada pelo wxWidgets.
-	for (size_t index = 0; index < toolbar.GetToolsCount(); ++index) {
-		auto const tool = toolbar.GetToolByPos(static_cast<int>(index));
-		if (!tool || tool->GetStyle() != wxTOOL_STYLE_BUTTON) {
-			continue;
-		}
-
-		auto const bitmap = tool->GetBitmap();
-		if (bitmap.IsOk()) {
-			hoverImages->Add(CreateHoverBitmap(bitmap));
-		}
-	}
-
-	auto const nativeImages = reinterpret_cast<HIMAGELIST>(
-		hoverImages->GetHIMAGELIST());
-	SendMessageW(toolbar.GetHandle(), TB_SETHOTIMAGELIST, 0,
-		reinterpret_cast<LPARAM>(nativeImages));
-	images = std::move(hoverImages);
-}
-#endif
-
 void CToolBar::RefreshToolbars()
 {
 	localToolBar_->Refresh(false);
@@ -259,6 +265,37 @@ void CToolBar::RefreshToolbars()
 }
 
 #ifdef __WXMSW__
+void CToolBar::OnToolbarMouseMove(wxMouseEvent& event)
+{
+	auto const toolbar = dynamic_cast<wxToolBar*>(event.GetEventObject());
+	auto const tool = toolbar ?
+		toolbar->FindToolForPosition(event.GetX(), event.GetY()) : nullptr;
+	int const toolId = tool && tool->IsButton() ? tool->GetId() : wxID_NONE;
+	if (toolbar != hoveredToolBar_ || toolId != hoveredToolId_) {
+		auto const previousToolbar = hoveredToolBar_;
+		hoveredToolBar_ = toolbar;
+		hoveredToolId_ = toolId;
+		if (previousToolbar && previousToolbar != toolbar) {
+			previousToolbar->Refresh(false);
+		}
+		if (toolbar) {
+			toolbar->Refresh(false);
+		}
+	}
+	event.Skip();
+}
+
+void CToolBar::OnToolbarMouseLeave(wxMouseEvent& event)
+{
+	auto const toolbar = dynamic_cast<wxToolBar*>(event.GetEventObject());
+	if (toolbar && toolbar == hoveredToolBar_) {
+		hoveredToolBar_ = nullptr;
+		hoveredToolId_ = wxID_NONE;
+		toolbar->Refresh(false);
+	}
+	event.Skip();
+}
+
 WXLRESULT CToolBar::MSWWindowProc(
 	WXUINT message, WXWPARAM wParam, WXLPARAM lParam)
 {
@@ -283,21 +320,20 @@ WXLRESULT CToolBar::MSWWindowProc(
 				auto const state = draw->nmcd.uItemState;
 				bool const disabled = (state & CDIS_DISABLED) != 0;
 				bool const pressed = !disabled && (state & CDIS_SELECTED) != 0;
-				bool const hovered = !disabled && (state & CDIS_HOT) != 0;
-				bool const checked = !disabled && SendMessageW(
-					header->hwndFrom, TB_ISBUTTONCHECKED,
-					draw->nmcd.dwItemSpec, 0) != 0;
+				bool const hovered = hoveredToolBar_ &&
+					header->hwndFrom == hoveredToolBar_->GetHandle() &&
+					draw->nmcd.dwItemSpec ==
+						static_cast<DWORD_PTR>(hoveredToolId_);
 
-				if (pressed || hovered || checked) {
+				if (pressed || hovered) {
 					RECT highlight = itemRect;
 					int const inset = FromDIP(2);
 					InflateRect(&highlight, -inset, -inset);
 					auto const backgroundRole = pressed ?
 						interface_colour::accent :
 						interface_colour::surface_strong;
-					auto const borderRole = hovered || pressed ?
-						interface_colour::accent_hover :
-						interface_colour::accent;
+					auto const borderRole =
+						interface_colour::accent_hover;
 					auto const brush = CreateSolidBrush(ToNativeColour(
 						GetInterfaceColour(backgroundRole)));
 					auto const pen = CreatePen(PS_SOLID, 1, ToNativeColour(
@@ -312,6 +348,11 @@ WXLRESULT CToolBar::MSWWindowProc(
 					SelectObject(draw->nmcd.hdc, previousBrush);
 					DeleteObject(pen);
 					DeleteObject(brush);
+				}
+
+				// Botões de alternância ignoram a hot image list no desenho nativo.
+				if (DrawToggleToolBitmap(*draw, disabled)) {
+					return CDRF_SKIPDEFAULT;
 				}
 
 				return TBCDRF_NOBACKGROUND | TBCDRF_NOEDGES |
@@ -398,7 +439,6 @@ void CToolBar::OnOptionsChanged(watched_options const& options)
 	if (options.test(OPTION_INTERFACE_APPEARANCE)) {
 		// A paleta muda antes do próximo ciclo de pintura do toolbar nativo.
 		CallAfter([this] {
-			RefreshHoverImages();
 			RefreshToolbars();
 		});
 	}
@@ -436,7 +476,6 @@ bool CToolBar::ShowTool(int id)
 	entry.toolbar->InsertTool(entry.position, entry.tool);
 	hiddenTools_.erase(hidden);
 	entry.toolbar->Realize();
-	RefreshHoverImages();
 	auto const selected = selectedTools_.find(id);
 	if (selected != selectedTools_.end()) {
 		entry.toolbar->ToggleTool(id, selected->second);
@@ -459,6 +498,5 @@ bool CToolBar::HideTool(int id)
 
 	hiddenTools_[id] = { toolbar, position, tool };
 	toolbar->Realize();
-	RefreshHoverImages();
 	return true;
 }

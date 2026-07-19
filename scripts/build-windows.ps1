@@ -77,9 +77,39 @@ function Invoke-UcrtBash {
     }
 }
 
+function Repair-LibtoolCxxRuntimeDetection {
+    <#
+    Remove o uso incompleto de -nostdlib gerado por versões do Libtool que não
+    conseguem detectar as bibliotecas padrão do GCC 16 no MinGW.
+    #>
+    param([Parameter(Mandatory)][string]$LibtoolPath)
+
+    $content = [IO.File]::ReadAllText($LibtoolPath)
+    $startMarker = "# ### BEGIN LIBTOOL TAG CONFIG: CXX"
+    $endMarker = "# ### END LIBTOOL TAG CONFIG: CXX"
+    $start = $content.IndexOf($startMarker, [StringComparison]::Ordinal)
+    $end = $content.IndexOf($endMarker, $start, [StringComparison]::Ordinal)
+    if ($start -lt 0 -or $end -lt 0) {
+        throw "Seção CXX não encontrada no Libtool: $LibtoolPath"
+    }
+
+    $sectionLength = $end - $start
+    $section = $content.Substring($start, $sectionLength)
+    if ($section.Contains('postdeps=""') -and $section.Contains(" -nostdlib")) {
+        $section = $section.Replace(" -nostdlib", "")
+        $content = $content.Substring(0, $start) + $section +
+            $content.Substring($end)
+        $utf8WithoutBom = [Text.UTF8Encoding]::new($false)
+        [IO.File]::WriteAllText($LibtoolPath, $content, $utf8WithoutBom)
+        Write-Host "Compatibilidade do Libtool com o GCC corrigida." `
+            -ForegroundColor Yellow
+    }
+}
+
 $buildDirectory = Join-Path $projectRoot "build-ucrt64"
 $configStatus = Join-Path $buildDirectory "config.status"
 $configHeader = Join-Path $buildDirectory "config\config.h"
+$libtoolPath = Join-Path $buildDirectory "libtool"
 
 if ($Reconfigure -or -not (Test-Path -LiteralPath $configStatus)) {
     Write-Host "Configurando o build UCRT64..." -ForegroundColor Cyan
@@ -96,6 +126,11 @@ if (-not (Test-Path -LiteralPath $configHeader)) {
     Write-Host "Finalizando os arquivos de configuração..." -ForegroundColor Cyan
     Invoke-UcrtBash "cd '$msysProjectRoot/build-ucrt64'; ./config.status"
 }
+
+if (-not (Test-Path -LiteralPath $libtoolPath)) {
+    throw "Libtool não encontrado depois da configuração: $libtoolPath"
+}
+Repair-LibtoolCxxRuntimeDetection -LibtoolPath $libtoolPath
 
 Write-Host "Compilando com $Jobs tarefas paralelas..." -ForegroundColor Cyan
 Invoke-UcrtBash "cd '$msysProjectRoot/build-ucrt64'; make MAYBE_FZSHELLEXT= -j$Jobs"

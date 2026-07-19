@@ -5,13 +5,10 @@
 
 #include "option_change_event_handler.h"
 
-#include <memory>
-
 #include <wx/panel.h>
 #include <wx/toolbar.h>
 
 class CMainFrame;
-class wxImageList;
 
 class CToolBar final : public wxPanel, public CGlobalStateEventHandler, public COptionChangeEventHandler
 {
@@ -31,12 +28,11 @@ protected:
 	void MakeTool(wxToolBar& toolbar, char const* id, std::wstring const& art, wxString const& tooltip, wxString const& help = wxString(), wxItemKind type = wxITEM_NORMAL);
 	void MakeTools();
 	wxToolBar* FindToolBar(int id) const;
-	void RefreshHoverImages();
 	void RefreshToolbars();
 
 #ifdef __WXMSW__
-	void RefreshHoverImages(
-		wxToolBar& toolbar, std::unique_ptr<wxImageList>& images);
+	void OnToolbarMouseLeave(wxMouseEvent& event);
+	void OnToolbarMouseMove(wxMouseEvent& event);
 	WXLRESULT MSWWindowProc(WXUINT message, WXWPARAM wParam, WXLPARAM lParam) override;
 #endif
 
@@ -59,8 +55,8 @@ protected:
 	std::map<int, bool> selectedTools_;
 
 #ifdef __WXMSW__
-	std::unique_ptr<wxImageList> localHoverImages_;
-	std::unique_ptr<wxImageList> remoteHoverImages_;
+	wxToolBar* hoveredToolBar_{};
+	int hoveredToolId_{wxID_NONE};
 #endif
 
 	wxSize iconSize_;
