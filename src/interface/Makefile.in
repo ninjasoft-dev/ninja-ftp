@@ -125,7 +125,7 @@ bin_PROGRAMS = filezilla$(EXEEXT)
 
 @HAVE_DBUS_TRUE@am__append_8 = ../dbus/libfzdbus.a
 @HAVE_DBUS_TRUE@am__append_9 = ../dbus/libfzdbus.a $(LIBDBUS_LIBS)
-@FZ_WINDOWS_TRUE@am__append_10 = -lnormaliz -lole32 -luuid -lnetapi32 -lmpr -lpowrprof -lws2_32 -lshlwapi -lgdi32 -lcomctl32
+@FZ_WINDOWS_TRUE@am__append_10 = -mwindows -lnormaliz -lole32 -luuid -lnetapi32 -lmpr -lpowrprof -lws2_32 -lshlwapi -lgdi32 -lcomctl32
 @FZ_WINDOWS_TRUE@am__append_11 = resources/filezilla.o
 @HAVE_LIBPUGIXML_FALSE@am__append_12 = $(PUGIXML_LIBS)
 @MACAPPBUNDLE_TRUE@am__append_13 = libfzmac.a

@@ -22,7 +22,7 @@ Compare o SHA-256 do ZIP com o arquivo `.sha256` publicado na mesma release.
 No PowerShell, execute:
 
 ```powershell
-Get-FileHash .\NinjaSoft-FTP-1.0.0-Windows-x64-portable.zip -Algorithm SHA256
+Get-FileHash .\NinjaSoft-FTP-*-Windows-x64-portable.zip -Algorithm SHA256
 ```
 
 Os binários desta versão ainda não possuem assinatura digital. Por isso, o
